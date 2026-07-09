@@ -1,0 +1,24 @@
+# PetusCore — Docker Compose for local testing / Dokploy import.
+# Dokploy can also build straight from the Dockerfile; this file is a handy
+# all-in-one for `docker compose up`.
+
+services:
+  petuscore:
+    build: .
+    container_name: petuscore
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      - PORT=8080
+      - PETUS_DB_PATH=/data
+      - PETUS_SERVER_NAME=PetusGDPS
+      - PETUS_API_SECRET=change-me-please
+      - PETUS_ADMIN_USER=Dimsk          # this username becomes admin on first login
+      - PETUS_PREACTIVATE=true
+      - PETUS_GAME_DOWNLOAD_URL=         # direct link to the modded GD client
+    volumes:
+      - petuscore-data:/data
+
+volumes:
+  petuscore-data:

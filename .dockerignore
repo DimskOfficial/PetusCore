@@ -1,0 +1,11 @@
+# PetusCore build context
+**/bin/
+**/obj/
+**/.vs/
+_testdb/
+dotnet-sdk/
+*.log
+.git
+.gitignore
+README.md
+docs/
