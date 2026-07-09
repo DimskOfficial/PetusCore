@@ -42,8 +42,9 @@ Namespace Services
         Public Function GenSolo(levelString As String) As String
             Dim len = levelString.Length
             If len < 41 Then Return Sha1Hex(levelString & SaltLevel)
-            Dim hash As Char() = New Char(52) {} ' 40 sampled + salt (13)
             Dim salt = SaltLevel
+            ' 40 sampled chars + the salt. Array length must be exactly 40+salt.
+            Dim hash As Char() = New Char(40 + salt.Length - 1) {}
             Dim m = len \ 40
             For i = 0 To 39
                 hash(i) = levelString(i * m)

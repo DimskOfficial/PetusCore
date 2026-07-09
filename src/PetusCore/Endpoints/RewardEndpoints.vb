@@ -28,55 +28,69 @@ Namespace Endpoints
                 Dim extID = If(accountID > 0, accountID.ToString(), GdHelpers.Clean(GdHelpers.Form(ctx, "udid")))
                 If extID = "" Then Return GdHelpers.Text("-1")
                 Dim user = db.ResolveUser(extID, GdHelpers.Clean(GdHelpers.Form(ctx, "userName")))
-                Dim chk = GdHelpers.Form(ctx, "chk")
+                Dim rawChk = GdHelpers.Form(ctx, "chk")
                 Dim udid = GdHelpers.Form(ctx, "udid")
-                Dim rewardType = GdHelpers.FormInt(ctx, "rewardType") ' 0 = just check, 1 = open small, 2 = open big
-                Dim now = GdHelpers.Now()
+                Dim accIdStr = GdHelpers.Form(ctx, "accountID")
+                Dim rewardType = GdHelpers.FormInt(ctx, "rewardType") ' 0 = check, 1 = small, 2 = big
+                ' Decode chk: XOR(base64_decode(substr(chk,5)), 59182) — echoed back verbatim.
+                Dim chk = ""
+                If rawChk.Length > 5 Then
+                    Try
+                        Dim decoded = Encoding.[Default].GetString(Convert.FromBase64String(rawChk.Substring(5)))
+                        chk = PasswordService.XorCipher(decoded, RewardKey)
+                    Catch
+                        chk = ""
+                    End Try
+                End If
+                Dim now = GdHelpers.Now() + 100
 
                 ' Time remaining on each chest (0 = ready).
-                Dim c1remain = Math.Max(0L, (user.Chest1Time + Chest1Cooldown) - now)
-                Dim c2remain = Math.Max(0L, (user.Chest2Time + Chest2Cooldown) - now)
+                Dim c1remain = Math.Max(0L, Chest1Cooldown - (now - user.Chest1Time))
+                Dim c2remain = Math.Max(0L, Chest2Cooldown - (now - user.Chest2Time))
 
-                Dim chest1stuff = "0,0,0,0"
-                Dim chest2stuff = "0,0,0,0"
+                Dim chest1stuff = RollChest(rng, 200, 4, 1)
+                Dim chest2stuff = RollChest(rng, 600, 10, 3)
 
-                If rewardType = 1 AndAlso c1remain <= 0 Then
-                    chest1stuff = RollChest(rng, 200, 4, 1)
+                If rewardType = 1 Then
+                    If c1remain <> 0 Then Return GdHelpers.Text("-1")
                     db.Users.Write(Sub(r)
                                        Dim u = r.Find(Function(x) x.UserID = user.UserID)
                                        If u IsNot Nothing Then u.Chest1Time = now : u.Chest1Count += 1
                                    End Sub)
-                    user.Chest1Count += 1
                     c1remain = Chest1Cooldown
-                ElseIf rewardType = 2 AndAlso c2remain <= 0 Then
-                    chest2stuff = RollChest(rng, 600, 10, 3)
+                ElseIf rewardType = 2 Then
+                    If c2remain <> 0 Then Return GdHelpers.Text("-1")
                     db.Users.Write(Sub(r)
                                        Dim u = r.Find(Function(x) x.UserID = user.UserID)
                                        If u IsNot Nothing Then u.Chest2Time = now : u.Chest2Count += 1
                                    End Sub)
-                    user.Chest2Count += 1
                     c2remain = Chest2Cooldown
                 End If
 
-                ' Build the reward payload the client expects.
+                ' Re-read counts after any mutation.
+                Dim freshUser = db.FindUserById(user.UserID)
+                Dim c1count = If(freshUser IsNot Nothing, freshUser.Chest1Count, user.Chest1Count)
+                Dim c2count = If(freshUser IsNot Nothing, freshUser.Chest2Count, user.Chest2Count)
+
+                ' Build the reward payload exactly as the client expects.
                 Dim prep = String.Join(":", New String() {
+                    "1",
                     user.UserID.ToString(),
                     chk,
                     udid,
-                    extID,
+                    accIdStr,
                     c1remain.ToString(),
                     chest1stuff,
-                    user.Chest1Count.ToString(),
+                    c1count.ToString(),
                     c2remain.ToString(),
                     chest2stuff,
-                    user.Chest2Count.ToString(),
+                    c2count.ToString(),
                     rewardType.ToString()
                 })
 
                 Dim body = HashService.Base64Url(PasswordService.XorCipher(prep, RewardKey))
-                Dim secret = RandomString(rng, 5)
-                Dim hash = HashService.Sha1Hex(body & RewardSalt)
-                Return GdHelpers.Text(secret & body & hash)
+                Dim hash = HashService.Sha1Hex(body & RewardSalt) ' genSolo4 salt
+                Return GdHelpers.Text("SaKuJ" & body & "|" & hash)
             End Function)
         End Sub
 
