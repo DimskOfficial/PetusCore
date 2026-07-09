@@ -80,6 +80,24 @@ Module Program
         ' (otherwise WebApplication auto-inserts routing at the pipeline start).
         app.UseRouting()
 
+        ' Optional access log to a file (PETUS_ACCESS_LOG=path). Handy for
+        ' confirming a hex-patched GD client is really hitting the endpoints.
+        Dim accessLog = Environment.GetEnvironmentVariable("PETUS_ACCESS_LOG")
+        If Not String.IsNullOrWhiteSpace(accessLog) Then
+            Dim logLock As New Object()
+            app.Use(Async Function(context As HttpContext, nextMiddleware As Func(Of Task))
+                        Dim path = context.Request.Path.Value
+                        Dim method = context.Request.Method
+                        Await nextMiddleware()
+                        Try
+                            SyncLock logLock
+                                IO.File.AppendAllText(accessLog, $"{DateTime.UtcNow:HH:mm:ss} {method} {path} -> {context.Response.StatusCode}" & Environment.NewLine)
+                            End SyncLock
+                        Catch
+                        End Try
+                    End Function)
+        End If
+
         ' Map the GD game endpoints and the website REST API.
         GdEndpoints.Map(app)
         RestApi.Map(app)
