@@ -1,0 +1,1 @@
+# JSON database lives here at runtime (accounts.json, levels.json, ...). Mount a volume in Dokploy.
