@@ -38,6 +38,9 @@ Namespace Services
         ''' <summary>Direct download URL for the modified GD client (site button).</summary>
         Public Property GameDownloadUrl As String = ""
 
+        ''' <summary>Username auto-promoted to admin on login (bootstrap the first admin).</summary>
+        Public Property AdminUser As String = ""
+
         Public Shared Function Load(config As IConfiguration, dbPath As String) As ServerConfig
             Dim c As New ServerConfig With {.DatabasePath = dbPath}
 
@@ -45,6 +48,7 @@ Namespace Services
             c.ServerName = Env("PETUS_SERVER_NAME", config("ServerName"), c.ServerName)
             c.Gjp2Salt = Env("PETUS_GJP2_SALT", config("Gjp2Salt"), c.Gjp2Salt)
             c.GameDownloadUrl = Env("PETUS_GAME_DOWNLOAD_URL", config("GameDownloadUrl"), c.GameDownloadUrl)
+            c.AdminUser = Env("PETUS_ADMIN_USER", config("AdminUser"), c.AdminUser)
 
             Dim pre = Env("PETUS_PREACTIVATE", config("PreactivateAccounts"), Nothing)
             If pre IsNot Nothing Then Boolean.TryParse(pre, c.PreactivateAccounts)
