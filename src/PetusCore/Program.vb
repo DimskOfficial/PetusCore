@@ -1,9 +1,12 @@
 Imports System.IO
 Imports Microsoft.AspNetCore.Builder
 Imports Microsoft.AspNetCore.Hosting
+Imports Microsoft.AspNetCore.Http
 Imports Microsoft.Extensions.DependencyInjection
 Imports Microsoft.Extensions.Hosting
+Imports PetusCore.Api
 Imports PetusCore.Data
+Imports PetusCore.Endpoints
 Imports PetusCore.Services
 
 ''' <summary>
@@ -25,11 +28,11 @@ Module Program
         End If
         dbPath = Path.GetFullPath(dbPath)
 
-        Dim serverConfig = ServerConfig.Load(builder.Configuration, dbPath)
+        Dim cfg = ServerConfig.Load(builder.Configuration, dbPath)
 
         ' --- Services ------------------------------------------------------
-        builder.Services.AddSingleton(serverConfig)
-        builder.Services.AddSingleton(Function(sp) New Database(serverConfig.DatabasePath))
+        builder.Services.AddSingleton(Of ServerConfig)(cfg)
+        builder.Services.AddSingleton(Of Database)(New Database(cfg.DatabasePath))
         builder.Services.AddSingleton(Of PasswordService)()
         builder.Services.AddSingleton(Of HashService)()
         builder.Services.AddSingleton(Of TokenService)()

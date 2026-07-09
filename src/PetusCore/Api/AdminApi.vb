@@ -25,10 +25,10 @@ Namespace Api
                     .accounts = db.Accounts.Count(),
                     .users = db.Users.Count(),
                     .levels = db.Levels.Count(),
-                    .rated = db.Levels.Read(Function(r) r.Count(Function(x) x.Stars > 0)),
-                    .featured = db.Levels.Read(Function(r) r.Count(Function(x) x.Featured > 0)),
-                    .banned = db.Accounts.Read(Function(r) r.Count(Function(x) x.IsBanned)),
-                    .mods = db.Accounts.Read(Function(r) r.Count(Function(x) x.ModLevel > 0)),
+                    .rated = db.Levels.Read(Function(r) r.Where(Function(x) x.Stars > 0).Count()),
+                    .featured = db.Levels.Read(Function(r) r.Where(Function(x) x.Featured > 0).Count()),
+                    .banned = db.Accounts.Read(Function(r) r.Where(Function(x) x.IsBanned).Count()),
+                    .mods = db.Accounts.Read(Function(r) r.Where(Function(x) x.ModLevel > 0).Count()),
                     .songs = db.Songs.Count(),
                     .recentActions = db.ModActions.All().OrderByDescending(Function(x) x.Timestamp).Take(20)
                 })
@@ -47,10 +47,10 @@ Namespace Api
             End Function)
 
             ' Grant / revoke moderator (ModLevel 0..2).
-            app.MapPost("/api/admin/accounts/{id:int}/mod", Async Function(ctx As HttpContext, id As Integer)
+            app.MapPost("/api/admin/accounts/{id:int}/mod", Function(ctx As HttpContext, id As Integer)
                 Dim admin = RequireAdmin(ctx, tokens, db)
                 If admin Is Nothing Then Return RestApi.[Error](ctx, 403, "forbidden")
-                Dim req = Await RestApi.ReadJson(ctx)
+                Dim req = RestApi.ReadJson(ctx)
                 Dim level = RestApi.IntOf(req, "modLevel")
                 Dim acc = db.FindAccount(id)
                 If acc Is Nothing Then Return RestApi.[Error](ctx, 404, "not_found")
@@ -61,10 +61,10 @@ Namespace Api
             End Function)
 
             ' Grant / revoke admin.
-            app.MapPost("/api/admin/accounts/{id:int}/admin", Async Function(ctx As HttpContext, id As Integer)
+            app.MapPost("/api/admin/accounts/{id:int}/admin", Function(ctx As HttpContext, id As Integer)
                 Dim admin = RequireAdmin(ctx, tokens, db)
                 If admin Is Nothing Then Return RestApi.[Error](ctx, 403, "forbidden")
-                Dim req = Await RestApi.ReadJson(ctx)
+                Dim req = RestApi.ReadJson(ctx)
                 Dim acc = db.FindAccount(id)
                 If acc Is Nothing Then Return RestApi.[Error](ctx, 404, "not_found")
                 acc.IsAdmin = If(RestApi.IntOf(req, "isAdmin") > 0, 1, 0)
@@ -74,10 +74,10 @@ Namespace Api
             End Function)
 
             ' Ban / unban account (also flags the linked user).
-            app.MapPost("/api/admin/accounts/{id:int}/ban", Async Function(ctx As HttpContext, id As Integer)
+            app.MapPost("/api/admin/accounts/{id:int}/ban", Function(ctx As HttpContext, id As Integer)
                 Dim admin = RequireAdmin(ctx, tokens, db)
                 If admin Is Nothing Then Return RestApi.[Error](ctx, 403, "forbidden")
-                Dim req = Await RestApi.ReadJson(ctx)
+                Dim req = RestApi.ReadJson(ctx)
                 Dim banned = RestApi.IntOf(req, "banned") > 0
                 Dim acc = db.FindAccount(id)
                 If acc Is Nothing Then Return RestApi.[Error](ctx, 404, "not_found")
@@ -107,10 +107,10 @@ Namespace Api
             End Function)
 
             ' Rate a level (stars, difficulty face, feature, epic, coins).
-            app.MapPost("/api/admin/levels/{id:int}/rate", Async Function(ctx As HttpContext, id As Integer)
+            app.MapPost("/api/admin/levels/{id:int}/rate", Function(ctx As HttpContext, id As Integer)
                 Dim admin = RequireMod(ctx, tokens, db)
                 If admin Is Nothing Then Return RestApi.[Error](ctx, 403, "forbidden")
-                Dim req = Await RestApi.ReadJson(ctx)
+                Dim req = RestApi.ReadJson(ctx)
                 Dim l = db.Levels.Read(Function(r) r.Find(Function(x) x.LevelID = id))
                 If l Is Nothing Then Return RestApi.[Error](ctx, 404, "not_found")
                 db.Levels.Write(Sub(r)
@@ -130,10 +130,10 @@ Namespace Api
             End Function)
 
             ' Set daily / weekly.
-            app.MapPost("/api/admin/levels/{id:int}/daily", Async Function(ctx As HttpContext, id As Integer)
+            app.MapPost("/api/admin/levels/{id:int}/daily", Function(ctx As HttpContext, id As Integer)
                 Dim admin = RequireMod(ctx, tokens, db)
                 If admin Is Nothing Then Return RestApi.[Error](ctx, 403, "forbidden")
-                Dim req = Await RestApi.ReadJson(ctx)
+                Dim req = RestApi.ReadJson(ctx)
                 Dim kind = RestApi.IntOf(req, "kind") ' 1 daily, 2 weekly, 0 none
                 db.Levels.Write(Sub(r)
                                     Dim lv = r.Find(Function(x) x.LevelID = id)

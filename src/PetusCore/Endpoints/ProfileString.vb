@@ -53,7 +53,7 @@ Namespace Endpoints
 
         Private Function ComputeRank(user As GdUser, db As Database) As Integer
             If user.Stars <= 0 Then Return 0
-            Return db.Users.Read(Function(r) r.Count(Function(u) u.Stars > user.Stars) + 1)
+            Return db.Users.Read(Function(r) r.Where(Function(u) u.Stars > user.Stars).Count() + 1)
         End Function
 
         Private Sub Append(sb As StringBuilder, key As Integer, value As Object)

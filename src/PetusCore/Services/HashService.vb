@@ -35,13 +35,13 @@ Namespace Services
                 sb.Append(lvl.Stars)
                 sb.Append(If(lvl.RateCoins > 0, "1", "0"))
             Next
-            Return Sha1(sb.ToString() & SaltLevel)
+            Return Sha1Hex(sb.ToString() & SaltLevel)
         End Function
 
         ''' <summary>Hash for a downloaded level string (downloadGJLevel).</summary>
         Public Function GenSolo(levelString As String) As String
             Dim len = levelString.Length
-            If len < 41 Then Return Sha1(levelString & SaltLevel)
+            If len < 41 Then Return Sha1Hex(levelString & SaltLevel)
             Dim hash As Char() = New Char(52) {} ' 40 sampled + salt (13)
             Dim salt = SaltLevel
             Dim m = len \ 40
@@ -51,16 +51,16 @@ Namespace Services
             For i = 0 To salt.Length - 1
                 hash(40 + i) = salt(i)
             Next
-            Return Sha1(New String(hash))
+            Return Sha1Hex(New String(hash))
         End Function
 
         Public Function GenWithSalt(value As String, salt As String) As String
-            Return Sha1(value & salt)
+            Return Sha1Hex(value & salt)
         End Function
 
         ''' <summary>Build a base64url(XOR(sha1(value+salt), key)) chk token.</summary>
         Public Function Chk(value As String, salt As String, key As String) As String
-            Dim hash = Sha1(value & salt)
+            Dim hash = Sha1Hex(value & salt)
             Dim xored = PasswordService.XorCipher(hash, key)
             Return Base64Url(xored)
         End Function
@@ -70,7 +70,7 @@ Namespace Services
             Return b64.Replace("+", "-").Replace("/", "_")
         End Function
 
-        Public Shared Function Sha1(input As String) As String
+        Public Shared Function Sha1Hex(input As String) As String
             Using sha = SHA1.Create()
                 Dim bytes = sha.ComputeHash(Encoding.UTF8.GetBytes(input))
                 Dim sb As New StringBuilder(bytes.Length * 2)

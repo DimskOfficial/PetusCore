@@ -36,11 +36,11 @@ Namespace Api
             }))
 
             app.MapGet("/api/stats", Function()
-                Ok(New With {
+                Return Ok(New With {
                     .accounts = db.Accounts.Count(),
                     .users = db.Users.Count(),
                     .levels = db.Levels.Count(),
-                    .ratedLevels = db.Levels.Read(Function(r) r.Count(Function(x) x.Stars > 0)),
+                    .ratedLevels = db.Levels.Read(Function(r) r.Where(Function(x) x.Stars > 0).Count()),
                     .comments = db.Comments.Count() + db.AccountComments.Count(),
                     .songs = db.Songs.Count()
                 })
@@ -54,8 +54,8 @@ Namespace Api
             End Function)
 
             ' ---- Auth ----------------------------------------------------
-            app.MapPost("/api/auth/login", Async Function(ctx As HttpContext)
-                Dim req = Await ReadJson(ctx)
+            app.MapPost("/api/auth/login", Function(ctx As HttpContext)
+                Dim req = ReadJson(ctx)
                 Dim userName = Str(req, "username")
                 Dim password = Str(req, "password")
                 Dim acc = db.FindAccountByName(userName)
@@ -68,17 +68,17 @@ Namespace Api
                     db.SaveAccount(acc)
                 End If
                 Dim tok = tokens.Issue(acc.AccountID)
-                Return Await WriteJson(ctx, New With {
+                Return Ok(New With {
                     .token = tok.Token,
                     .expiresAt = tok.ExpiresAt,
                     .account = PublicAccount(acc, db)
                 })
             End Function)
 
-            app.MapPost("/api/auth/logout", Async Function(ctx As HttpContext)
+            app.MapPost("/api/auth/logout", Function(ctx As HttpContext)
                 Dim tk = BearerToken(ctx)
                 If tk <> "" Then tokens.Revoke(tk)
-                Return Await WriteJson(ctx, New With {.ok = True})
+                Return Ok(New With {.ok = True})
             End Function)
 
             app.MapGet("/api/auth/me", Function(ctx As HttpContext)
@@ -88,10 +88,10 @@ Namespace Api
             End Function)
 
             ' ---- Account self-service ------------------------------------
-            app.MapPost("/api/account/change-password", Async Function(ctx As HttpContext)
+            app.MapPost("/api/account/change-password", Function(ctx As HttpContext)
                 Dim acc = RequireAuth(ctx, tokens)
                 If acc Is Nothing Then Return [Error](ctx, 401, "unauthorized")
-                Dim req = Await ReadJson(ctx)
+                Dim req = ReadJson(ctx)
                 Dim oldPass = Str(req, "oldPassword")
                 Dim newPass = Str(req, "newPassword")
                 If Not pw.VerifyRawPassword(oldPass, acc) Then Return [Error](ctx, 400, "wrong_old_password")
@@ -99,13 +99,13 @@ Namespace Api
                 acc.Password = pw.HashPassword(newPass)
                 acc.Gjp2 = pw.HashGjp2(newPass)
                 db.SaveAccount(acc)
-                Return Await WriteJson(ctx, New With {.ok = True})
+                Return Ok(New With {.ok = True})
             End Function)
 
-            app.MapPost("/api/account/socials", Async Function(ctx As HttpContext)
+            app.MapPost("/api/account/socials", Function(ctx As HttpContext)
                 Dim acc = RequireAuth(ctx, tokens)
                 If acc Is Nothing Then Return [Error](ctx, 401, "unauthorized")
-                Dim req = Await ReadJson(ctx)
+                Dim req = ReadJson(ctx)
                 acc.Youtube = Str(req, "youtube", acc.Youtube)
                 acc.Twitter = Str(req, "twitter", acc.Twitter)
                 acc.Twitch = Str(req, "twitch", acc.Twitch)
@@ -113,24 +113,24 @@ Namespace Api
                 acc.Instagram = Str(req, "instagram", acc.Instagram)
                 acc.Tiktok = Str(req, "tiktok", acc.Tiktok)
                 db.SaveAccount(acc)
-                Return Await WriteJson(ctx, New With {.ok = True})
+                Return Ok(New With {.ok = True})
             End Function)
 
             ' Request a recovery code (in a real deployment you'd email it).
-            app.MapPost("/api/account/recover-request", Async Function(ctx As HttpContext)
-                Dim req = Await ReadJson(ctx)
+            app.MapPost("/api/account/recover-request", Function(ctx As HttpContext)
+                Dim req = ReadJson(ctx)
                 Dim userName = Str(req, "username")
                 Dim acc = db.FindAccountByName(userName)
-                If acc Is Nothing Then Return Await WriteJson(ctx, New With {.ok = True}) ' don't leak existence
+                If acc Is Nothing Then Return Ok(New With {.ok = True}) ' don't leak existence
                 acc.RecoveryCode = Guid.NewGuid().ToString("N").Substring(0, 8).ToUpper()
                 acc.RecoveryExpires = DateTimeOffset.UtcNow.ToUnixTimeSeconds() + 3600
                 db.SaveAccount(acc)
                 ' NOTE: exposed here for self-hosted convenience; wire to email/Discord in prod.
-                Return Await WriteJson(ctx, New With {.ok = True, .code = acc.RecoveryCode, .expiresAt = acc.RecoveryExpires})
+                Return Ok(New With {.ok = True, .code = acc.RecoveryCode, .expiresAt = acc.RecoveryExpires})
             End Function)
 
-            app.MapPost("/api/account/recover-confirm", Async Function(ctx As HttpContext)
-                Dim req = Await ReadJson(ctx)
+            app.MapPost("/api/account/recover-confirm", Function(ctx As HttpContext)
+                Dim req = ReadJson(ctx)
                 Dim userName = Str(req, "username")
                 Dim code = Str(req, "code")
                 Dim newPass = Str(req, "newPassword")
@@ -146,14 +146,14 @@ Namespace Api
                 acc.RecoveryCode = ""
                 acc.RecoveryExpires = 0
                 db.SaveAccount(acc)
-                Return Await WriteJson(ctx, New With {.ok = True})
+                Return Ok(New With {.ok = True})
             End Function)
 
             ' ---- Music upload --------------------------------------------
-            app.MapPost("/api/songs", Async Function(ctx As HttpContext)
+            app.MapPost("/api/songs", Function(ctx As HttpContext)
                 Dim acc = RequireAuth(ctx, tokens)
                 If acc Is Nothing Then Return [Error](ctx, 401, "unauthorized")
-                Dim req = Await ReadJson(ctx)
+                Dim req = ReadJson(ctx)
                 Dim song As New Song With {
                     .ID = db.NextId("songID"),
                     .Name = Str(req, "name"),
@@ -165,11 +165,11 @@ Namespace Api
                 }
                 If song.Name = "" OrElse song.Download = "" Then Return [Error](ctx, 400, "name_and_url_required")
                 db.Songs.Write(Sub(r) r.Add(song))
-                Return Await WriteJson(ctx, New With {.ok = True, .id = song.ID})
+                Return Ok(New With {.ok = True, .id = song.ID})
             End Function)
 
             app.MapGet("/api/songs", Function()
-                Ok(db.Songs.All().Select(Function(s) New With {s.ID, s.Name, .artist = s.ArtistName, .size = s.Size, .url = s.Download, .uploadedBy = s.UploadedBy}))
+                Return Ok(db.Songs.All().Select(Function(s) New With {s.ID, s.Name, .artist = s.ArtistName, .size = s.Size, .url = s.Download, .uploadedBy = s.UploadedBy}))
             End Function)
 
             ' ---- Levels (browse) -----------------------------------------
@@ -242,19 +242,17 @@ Namespace Api
             Return Results.Json(New With {.error = code}, Json.Options, statusCode:=status)
         End Function
 
-        Public Async Function ReadJson(ctx As HttpContext) As Task(Of JsonElement)
+        ''' <summary>Read and parse the request body as JSON (blocks on async read).</summary>
+        Public Function ReadJson(ctx As HttpContext) As JsonElement
             Try
-                Using doc = Await JsonDocument.ParseAsync(ctx.Request.Body)
+                Dim body = New IO.StreamReader(ctx.Request.Body).ReadToEndAsync().GetAwaiter().GetResult()
+                If String.IsNullOrWhiteSpace(body) Then Return New JsonElement()
+                Using doc = JsonDocument.Parse(body)
                     Return doc.RootElement.Clone()
                 End Using
             Catch
                 Return New JsonElement()
             End Try
-        End Function
-
-        Public Async Function WriteJson(ctx As HttpContext, value As Object) As Task(Of IResult)
-            Await Task.CompletedTask
-            Return Results.Json(value, Json.Options)
         End Function
 
         Public Function Str(el As JsonElement, name As String, Optional dflt As String = "") As String
