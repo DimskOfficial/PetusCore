@@ -23,6 +23,8 @@ Namespace Endpoints
             CommentEndpoints.Map(app, db, pw, hash)
             ScoreEndpoints.Map(app, db, pw, hash)
             SongEndpoints.Map(app, db)
+            SocialEndpoints.Map(app, db, pw)
+            RewardEndpoints.Map(app, db, pw)
             MiscEndpoints.Map(app, db, pw)
         End Sub
 
@@ -60,7 +62,7 @@ Namespace Endpoints
                 a.MapPost(path, Function(ctx As HttpContext) GdHelpers.Text("#"))
             Next
             a.MapPost("/getGJChallenges.php", Function(ctx As HttpContext) GdHelpers.Text("-1"))
-            a.MapPost("/getGJRewards.php", Function(ctx As HttpContext) GdHelpers.Text("-1"))
+            ' getGJRewards is handled by RewardEndpoints.
 
             ' Report a level (accepted, logged).
             a.MapPost("/reportGJLevel.php", Function(ctx As HttpContext)
