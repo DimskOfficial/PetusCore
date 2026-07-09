@@ -1,0 +1,19 @@
+# --- .NET build artifacts ---
+bin/
+obj/
+*.user
+*.suo
+.vs/
+
+# --- Runtime data (DB is a mounted volume in Dokploy) ---
+# The seed database ships with the repo; live data is written at runtime.
+database/*.live.json
+
+# --- OS / editor ---
+.DS_Store
+Thumbs.db
+*.swp
+
+# --- Secrets ---
+.env
+appsettings.Local.json
