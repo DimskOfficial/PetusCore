@@ -25,6 +25,9 @@ Namespace Data
         Public ReadOnly Property Messages As JsonTable(Of Message)
         Public ReadOnly Property ModActions As JsonTable(Of ModAction)
         Public ReadOnly Property Tokens As JsonTable(Of ApiToken)
+        Public ReadOnly Property MapPacks As JsonTable(Of MapPack)
+        Public ReadOnly Property Gauntlets As JsonTable(Of Gauntlet)
+        Public ReadOnly Property Quests As JsonTable(Of Quest)
 
         Private ReadOnly _counters As JsonTable(Of Counter)
         Private ReadOnly _idGate As New Object()
@@ -46,6 +49,9 @@ Namespace Data
             Messages = New JsonTable(Of Message)(P("messages"))
             ModActions = New JsonTable(Of ModAction)(P("modactions"))
             Tokens = New JsonTable(Of ApiToken)(P("tokens"))
+            MapPacks = New JsonTable(Of MapPack)(P("mappacks"))
+            Gauntlets = New JsonTable(Of Gauntlet)(P("gauntlets"))
+            Quests = New JsonTable(Of Quest)(P("quests"))
             _counters = New JsonTable(Of Counter)(P("counters"))
         End Sub
 

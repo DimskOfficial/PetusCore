@@ -162,6 +162,116 @@ Namespace Api
                 db.Log(admin.AccountID, "deleteSong", id.ToString(), "")
                 Return RestApi.Ok(New With {.ok = True})
             End Function)
+
+            ' ---- Map packs -----------------------------------------------
+            app.MapGet("/api/admin/mappacks", Function(ctx As HttpContext)
+                If RequireMod(ctx, tokens, db) Is Nothing Then Return RestApi.[Error](ctx, 403, "forbidden")
+                Return RestApi.Ok(db.MapPacks.All().OrderBy(Function(m) m.ID))
+            End Function)
+
+            app.MapPost("/api/admin/mappacks", Function(ctx As HttpContext)
+                Dim admin = RequireMod(ctx, tokens, db)
+                If admin Is Nothing Then Return RestApi.[Error](ctx, 403, "forbidden")
+                Dim req = RestApi.ReadJson(ctx)
+                Dim mp As New MapPack With {
+                    .ID = db.NextId("mapPackID"),
+                    .Name = RestApi.Str(req, "name"),
+                    .Levels = RestApi.Str(req, "levels"),
+                    .Stars = RestApi.IntOf(req, "stars"),
+                    .Coins = RestApi.IntOf(req, "coins"),
+                    .Difficulty = RestApi.IntOf(req, "difficulty"),
+                    .Color = RestApi.Str(req, "color", "255,255,255"),
+                    .Color2 = RestApi.Str(req, "color2", "255,255,255")
+                }
+                db.MapPacks.Write(Sub(r) r.Add(mp))
+                db.Log(admin.AccountID, "createMapPack", mp.ID.ToString(), mp.Name)
+                Return RestApi.Ok(New With {.ok = True, .id = mp.ID})
+            End Function)
+
+            app.MapPost("/api/admin/mappacks/{id:int}", Function(ctx As HttpContext, id As Integer)
+                Dim admin = RequireMod(ctx, tokens, db)
+                If admin Is Nothing Then Return RestApi.[Error](ctx, 403, "forbidden")
+                Dim req = RestApi.ReadJson(ctx)
+                db.MapPacks.Write(Sub(r)
+                                      Dim mp = r.Find(Function(x) x.ID = id)
+                                      If mp IsNot Nothing Then
+                                          mp.Name = RestApi.Str(req, "name", mp.Name)
+                                          mp.Levels = RestApi.Str(req, "levels", mp.Levels)
+                                          mp.Stars = RestApi.IntOf(req, "stars", mp.Stars)
+                                          mp.Coins = RestApi.IntOf(req, "coins", mp.Coins)
+                                          mp.Difficulty = RestApi.IntOf(req, "difficulty", mp.Difficulty)
+                                          mp.Color = RestApi.Str(req, "color", mp.Color)
+                                          mp.Color2 = RestApi.Str(req, "color2", mp.Color2)
+                                      End If
+                                  End Sub)
+                Return RestApi.Ok(New With {.ok = True})
+            End Function)
+
+            app.MapDelete("/api/admin/mappacks/{id:int}", Function(ctx As HttpContext, id As Integer)
+                Dim admin = RequireMod(ctx, tokens, db)
+                If admin Is Nothing Then Return RestApi.[Error](ctx, 403, "forbidden")
+                db.MapPacks.Write(Sub(r) r.RemoveAll(Function(x) x.ID = id))
+                db.Log(admin.AccountID, "deleteMapPack", id.ToString(), "")
+                Return RestApi.Ok(New With {.ok = True})
+            End Function)
+
+            ' ---- Gauntlets -----------------------------------------------
+            app.MapGet("/api/admin/gauntlets", Function(ctx As HttpContext)
+                If RequireMod(ctx, tokens, db) Is Nothing Then Return RestApi.[Error](ctx, 403, "forbidden")
+                Return RestApi.Ok(db.Gauntlets.All().OrderBy(Function(g) g.ID))
+            End Function)
+
+            ' Create or update a gauntlet by its type id (1..15).
+            app.MapPost("/api/admin/gauntlets", Function(ctx As HttpContext)
+                Dim admin = RequireMod(ctx, tokens, db)
+                If admin Is Nothing Then Return RestApi.[Error](ctx, 403, "forbidden")
+                Dim req = RestApi.ReadJson(ctx)
+                Dim gid = RestApi.IntOf(req, "id")
+                Dim levels = RestApi.Str(req, "levels")
+                If gid <= 0 Then Return RestApi.[Error](ctx, 400, "id_required")
+                db.Gauntlets.Write(Sub(r)
+                                       Dim g = r.Find(Function(x) x.ID = gid)
+                                       If g Is Nothing Then r.Add(New Gauntlet With {.ID = gid, .Levels = levels}) Else g.Levels = levels
+                                   End Sub)
+                db.Log(admin.AccountID, "setGauntlet", gid.ToString(), levels)
+                Return RestApi.Ok(New With {.ok = True})
+            End Function)
+
+            app.MapDelete("/api/admin/gauntlets/{id:int}", Function(ctx As HttpContext, id As Integer)
+                Dim admin = RequireMod(ctx, tokens, db)
+                If admin Is Nothing Then Return RestApi.[Error](ctx, 403, "forbidden")
+                db.Gauntlets.Write(Sub(r) r.RemoveAll(Function(x) x.ID = id))
+                Return RestApi.Ok(New With {.ok = True})
+            End Function)
+
+            ' ---- Quests --------------------------------------------------
+            app.MapGet("/api/admin/quests", Function(ctx As HttpContext)
+                If RequireMod(ctx, tokens, db) Is Nothing Then Return RestApi.[Error](ctx, 403, "forbidden")
+                Return RestApi.Ok(db.Quests.All().OrderBy(Function(q) q.ID))
+            End Function)
+
+            app.MapPost("/api/admin/quests", Function(ctx As HttpContext)
+                Dim admin = RequireMod(ctx, tokens, db)
+                If admin Is Nothing Then Return RestApi.[Error](ctx, 403, "forbidden")
+                Dim req = RestApi.ReadJson(ctx)
+                Dim q As New Quest With {
+                    .ID = db.NextId("questID"),
+                    .Type = RestApi.IntOf(req, "type", 1),
+                    .Amount = RestApi.IntOf(req, "amount"),
+                    .Reward = RestApi.IntOf(req, "reward"),
+                    .Name = RestApi.Str(req, "name")
+                }
+                db.Quests.Write(Sub(r) r.Add(q))
+                db.Log(admin.AccountID, "createQuest", q.ID.ToString(), q.Name)
+                Return RestApi.Ok(New With {.ok = True, .id = q.ID})
+            End Function)
+
+            app.MapDelete("/api/admin/quests/{id:int}", Function(ctx As HttpContext, id As Integer)
+                Dim admin = RequireMod(ctx, tokens, db)
+                If admin Is Nothing Then Return RestApi.[Error](ctx, 403, "forbidden")
+                db.Quests.Write(Sub(r) r.RemoveAll(Function(x) x.ID = id))
+                Return RestApi.Ok(New With {.ok = True})
+            End Function)
         End Sub
 
         ' ---------------- guards --------------------------------------

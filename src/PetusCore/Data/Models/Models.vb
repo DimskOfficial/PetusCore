@@ -237,4 +237,31 @@ Namespace Data.Models
         Public Property Value As Integer = 0
     End Class
 
+    ''' <summary>A map pack (a themed bundle of levels with a reward).</summary>
+    Public Class MapPack
+        Public Property ID As Integer
+        Public Property Name As String = ""
+        Public Property Levels As String = ""      ' comma-separated level IDs
+        Public Property Stars As Integer = 0
+        Public Property Coins As Integer = 0
+        Public Property Difficulty As Integer = 0  ' 0 auto .. 5 insane, 6 demon
+        Public Property Color As String = "255,255,255"   ' text/RGB
+        Public Property Color2 As String = "255,255,255"  ' bar/RGB
+    End Class
+
+    ''' <summary>A gauntlet (fixed 5-level challenge set).</summary>
+    Public Class Gauntlet
+        Public Property ID As Integer              ' gauntlet type id (1..15+)
+        Public Property Levels As String = ""      ' comma-separated 5 level IDs
+    End Class
+
+    ''' <summary>A quest / challenge (getGJChallenges).</summary>
+    Public Class Quest
+        Public Property ID As Integer
+        Public Property Type As Integer = 0        ' 1 orbs, 2 coins, 3 stars
+        Public Property Amount As Integer = 0
+        Public Property Reward As Integer = 0
+        Public Property Name As String = ""
+    End Class
+
 End Namespace

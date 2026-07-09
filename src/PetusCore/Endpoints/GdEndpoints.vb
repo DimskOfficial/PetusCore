@@ -25,6 +25,7 @@ Namespace Endpoints
             SongEndpoints.Map(app, db)
             SocialEndpoints.Map(app, db, pw)
             RewardEndpoints.Map(app, db, pw)
+            ContentEndpoints.Map(app, db, pw, hash)
             MiscEndpoints.Map(app, db, pw)
         End Sub
 
@@ -54,14 +55,7 @@ Namespace Endpoints
                 Return GdHelpers.Text(sb.ToString())
             End Function)
 
-            ' Map packs / gauntlets / challenges — empty but valid responses.
-            For Each path In {"/getGJMapPacks21.php", "/getGJMapPacks20.php", "/getGJMapPacks.php"}
-                a.MapPost(path, Function(ctx As HttpContext) GdHelpers.Text("#0:0:10#"))
-            Next
-            For Each path In {"/getGJGauntlets21.php", "/getGJGauntlets.php"}
-                a.MapPost(path, Function(ctx As HttpContext) GdHelpers.Text("#"))
-            Next
-            a.MapPost("/getGJChallenges.php", Function(ctx As HttpContext) GdHelpers.Text("-1"))
+            ' Map packs / gauntlets / challenges are handled by ContentEndpoints.
             ' getGJRewards is handled by RewardEndpoints.
 
             ' Report a level (accepted, logged).
