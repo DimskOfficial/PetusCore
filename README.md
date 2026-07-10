@@ -165,6 +165,8 @@ PetusCore/
   present as valid stub responses so the client never hangs; they can be
   fleshed out incrementally.
 
+  P.S окак
+
 ## 📜 License
 
 [MIT](LICENSE) © 2026 DimskOfficial
