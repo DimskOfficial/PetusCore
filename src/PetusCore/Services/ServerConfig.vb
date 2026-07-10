@@ -38,6 +38,12 @@ Namespace Services
         ''' <summary>Direct download URL for the modified GD client (site button).</summary>
         Public Property GameDownloadUrl As String = ""
 
+        ''' <summary>Absolute path to the packaged game .zip served by the launcher.</summary>
+        Public Property GameZipPath As String = ""
+
+        ''' <summary>Executable name the launcher runs after install (inside the zip).</summary>
+        Public Property GameExe As String = "GeometryDash.exe"
+
         ''' <summary>Username auto-promoted to admin on login (bootstrap the first admin).</summary>
         Public Property AdminUser As String = ""
 
@@ -48,6 +54,8 @@ Namespace Services
             c.ServerName = Env("PETUS_SERVER_NAME", config("ServerName"), c.ServerName)
             c.Gjp2Salt = Env("PETUS_GJP2_SALT", config("Gjp2Salt"), c.Gjp2Salt)
             c.GameDownloadUrl = Env("PETUS_GAME_DOWNLOAD_URL", config("GameDownloadUrl"), c.GameDownloadUrl)
+            c.GameZipPath = Env("PETUS_GAME_ZIP", config("GameZipPath"), c.GameZipPath)
+            c.GameExe = Env("PETUS_GAME_EXE", config("GameExe"), c.GameExe)
             c.AdminUser = Env("PETUS_ADMIN_USER", config("AdminUser"), c.AdminUser)
 
             Dim pre = Env("PETUS_PREACTIVATE", config("PreactivateAccounts"), Nothing)

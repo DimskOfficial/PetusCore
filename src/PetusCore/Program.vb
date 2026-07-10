@@ -83,6 +83,7 @@ Module Program
         ' Map the GD game endpoints and the website REST API.
         GdEndpoints.Map(app)
         RestApi.Map(app)
+        LauncherApi.Map(app)
 
         ' Simple health check for Dokploy.
         app.MapGet("/health", Function() Results.Ok(New With {.status = "ok", .server = "PetusCore", .version = ServerConfig.Version}))
