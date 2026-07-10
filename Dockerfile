@@ -18,14 +18,9 @@ RUN apt-get update \
 
 COPY --from=build /app ./
 
-# The JSON database lives here — mount a Dokploy volume at /data to persist it.
-ENV PETUS_DB_PATH=/data
+# Storage is PostgreSQL — set PETUS_DB_URL to your Postgres connection string.
 ENV PORT=8080
-VOLUME ["/data"]
 EXPOSE 8080
-
-# Seed the database folder inside the image (empty; created on first boot).
-RUN mkdir -p /data
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
   CMD curl -fsS http://localhost:8080/health || exit 1

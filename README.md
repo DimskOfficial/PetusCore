@@ -6,9 +6,8 @@ server ("GDPS") emulator written from scratch in **Visual Basic .NET**
 
 It speaks the Geometry Dash game protocol the client expects *and* exposes a
 clean JSON **REST API** for the [PetusGDPS website](https://github.com/DimskOfficial/PetusGDPS).
-There is **no SQL database** — everything is stored as plain, human-readable
-**JSON files** in a `database/` folder, so it's trivial to host, back up and
-inspect.
+Data is stored in **PostgreSQL** — every entity is a real relational table with
+typed columns (no JSON blobs). Point it at any Postgres with `PETUS_DB_URL`.
 
 > Inspired by / compatible with the account & hashing conventions of
 > [GMDprivateServer](https://github.com/Cvolton/GMDprivateServer), but a
@@ -55,13 +54,15 @@ PetusCore ships as an **Application** you can deploy straight from this repo.
    - **Dockerfile Path:** `Dockerfile`
    - **Docker Context Path:** `.` (repo root — the Dockerfile COPYs from `src/PetusCore/`)
    - **Docker Build Stage:** *(leave empty — the final stage is the runtime image)*
-3. Add a **Volume**: mount path **`/data`** (this is where the JSON database
-   lives — it must persist across redeploys).
-4. Set **Environment variables** (see the table below). At minimum change
-   `PETUS_API_SECRET`, set `PETUS_ADMIN_USER` to your in-game username, and set
-   `PETUS_PUBLIC_URL` to your domain (e.g. `https://gdps.petus.ru`).
+3. Add a **PostgreSQL** database (Dokploy → Databases → PostgreSQL, or any
+   external Postgres/Neon). Put its connection string in `PETUS_DB_URL`.
+4. Set **Environment variables** (see the table below). At minimum set
+   `PETUS_DB_URL`, change `PETUS_API_SECRET`, set `PETUS_ADMIN_USER` to your
+   in-game username, and set `PETUS_PUBLIC_URL` to your domain (e.g.
+   `https://gdps.petus.ru`).
 5. Expose the app and attach your domain. The container listens on **8080**.
-6. Deploy. Check `https://your-domain/health` → `{"status":"ok",...}`.
+6. Deploy. Check `https://your-domain/health` → `{"status":"ok",...}`. Tables are
+   created automatically on first boot.
 
 Point your modified Geometry Dash client's server URL at your PetusCore domain
 and you're live.
@@ -71,7 +72,7 @@ and you're live.
 | Variable                  | Default            | Purpose                                            |
 |---------------------------|--------------------|----------------------------------------------------|
 | `PORT`                    | `8080`             | Port to listen on (Dokploy sets this)              |
-| `PETUS_DB_PATH`           | `/data`            | Folder for the JSON database (mount a volume here) |
+| `PETUS_DB_URL`            | *(required)*       | PostgreSQL connection string, e.g. `Host=petus-pg;Port=5432;Username=petus;Password=...;Database=petusgdps` |
 | `PETUS_SERVER_NAME`       | `PetusGDPS`        | Display name on the API/site                       |
 | `PETUS_API_SECRET`        | `change-me...`     | Secret for signing API tokens — **change it**      |
 | `PETUS_ADMIN_USER`        | *(empty)*          | Username auto-promoted to admin on first login     |
@@ -99,7 +100,8 @@ Or plain Docker:
 
 ```bash
 docker build -t petuscore .
-docker run -p 8080:8080 -v petus-data:/data \
+docker run -p 8080:8080 \
+  -e PETUS_DB_URL="Host=host.docker.internal;Port=5432;Username=postgres;Password=postgres;Database=petusgdps" \
   -e PETUS_ADMIN_USER=Dimsk -e PETUS_API_SECRET=please-change \
   petuscore
 ```
@@ -110,8 +112,9 @@ docker run -p 8080:8080 -v petus-data:/data \
 
 ```bash
 cd src/PetusCore
-dotnet run -c Release
-# reads ./database by default; override with PETUS_DB_PATH
+PETUS_DB_URL="Host=127.0.0.1;Port=5432;Username=postgres;Password=postgres;Database=petusgdps" \
+  dotnet run -c Release
+# tables are created automatically on first boot
 ```
 
 ---

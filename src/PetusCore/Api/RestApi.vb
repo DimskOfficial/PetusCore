@@ -190,11 +190,10 @@ Namespace Api
                 If ext <> ".mp3" Then Return [Error](ctx, 415, "only_mp3")
 
                 Dim id = db.NextId("songID")
-                Dim musicDir = Path.Combine(cfg.DatabasePath, "music")
-                Directory.CreateDirectory(musicDir)
-                Dim dest = Path.Combine(musicDir, id & ".mp3")
-                Using fs = File.Create(dest)
-                    upload.CopyTo(fs)
+                Using ms As New MemoryStream()
+                    upload.CopyTo(ms)
+                    Dim b64 = Convert.ToBase64String(ms.ToArray())
+                    db.Music.Write(Sub(r) r.Add(New MusicFile With {.ID = id, .Data = b64}))
                 End Using
 
                 Dim sizeMb = Math.Round(upload.Length / 1024.0 / 1024.0, 2)
@@ -217,14 +216,17 @@ Namespace Api
                 Return Ok(New With {.ok = True, .id = song.ID, .url = song.Download, .size = song.Size, .name = song.Name})
             End Function)
 
-            ' Serve uploaded mp3s to the GD client (range-enabled for streaming).
+            ' Serve uploaded mp3s to the GD client (stored in the DB).
             app.MapGet("/music/{name}", Function(ctx As HttpContext, name As String)
-                Dim safe = Path.GetFileName(name) ' strip any path traversal
-                Dim full = Path.Combine(cfg.DatabasePath, "music", safe)
-                If Not full.EndsWith(".mp3", StringComparison.OrdinalIgnoreCase) OrElse Not File.Exists(full) Then
+                Dim baseName = Path.GetFileNameWithoutExtension(name)
+                Dim id As Integer
+                If Not name.EndsWith(".mp3", StringComparison.OrdinalIgnoreCase) OrElse Not Integer.TryParse(baseName, id) Then
                     Return Results.NotFound()
                 End If
-                Return Results.File(full, "audio/mpeg", enableRangeProcessing:=True)
+                Dim mf = db.Music.Read(Function(r) r.Find(Function(x) x.ID = id))
+                If mf Is Nothing OrElse mf.Data = "" Then Return Results.NotFound()
+                Dim bytes = Convert.FromBase64String(mf.Data)
+                Return Results.File(bytes, "audio/mpeg", enableRangeProcessing:=True)
             End Function)
 
             ' ---- Levels (browse) -----------------------------------------

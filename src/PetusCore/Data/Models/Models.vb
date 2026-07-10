@@ -266,4 +266,11 @@ Namespace Data.Models
         Public Property Name As String = ""
     End Class
 
+    ''' <summary>Uploaded music file bytes, stored in the DB (no filesystem).
+    ''' Data is base64 so it maps to a plain text column.</summary>
+    Public Class MusicFile
+        Public Property ID As Integer
+        Public Property Data As String = ""        ' base64-encoded mp3
+    End Class
+
 End Namespace

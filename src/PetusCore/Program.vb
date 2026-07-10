@@ -21,18 +21,18 @@ Module Program
         Dim builder = WebApplication.CreateBuilder(args)
 
         ' --- Configuration -------------------------------------------------
-        ' DB path can be overridden with PETUS_DB_PATH (Dokploy volume mount).
-        Dim dbPath = Environment.GetEnvironmentVariable("PETUS_DB_PATH")
-        If String.IsNullOrWhiteSpace(dbPath) Then
-            dbPath = Path.Combine(builder.Environment.ContentRootPath, "..", "..", "database")
+        ' PostgreSQL connection string (required). Dokploy: point at your PG service.
+        Dim dbUrl = Environment.GetEnvironmentVariable("PETUS_DB_URL")
+        If String.IsNullOrWhiteSpace(dbUrl) Then dbUrl = builder.Configuration("DbUrl")
+        If String.IsNullOrWhiteSpace(dbUrl) Then
+            Throw New InvalidOperationException("PETUS_DB_URL is required (PostgreSQL connection string).")
         End If
-        dbPath = Path.GetFullPath(dbPath)
 
-        Dim cfg = ServerConfig.Load(builder.Configuration, dbPath)
+        Dim cfg = ServerConfig.Load(builder.Configuration, dbUrl)
 
         ' --- Services ------------------------------------------------------
         builder.Services.AddSingleton(Of ServerConfig)(cfg)
-        builder.Services.AddSingleton(Of Database)(New Database(cfg.DatabasePath))
+        builder.Services.AddSingleton(Of Database)(New Database(dbUrl))
         builder.Services.AddSingleton(Of PasswordService)()
         builder.Services.AddSingleton(Of HashService)()
         builder.Services.AddSingleton(Of TokenService)()
