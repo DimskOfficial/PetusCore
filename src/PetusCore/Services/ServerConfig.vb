@@ -47,6 +47,14 @@ Namespace Services
         ''' <summary>Username auto-promoted to admin on login (bootstrap the first admin).</summary>
         Public Property AdminUser As String = ""
 
+        ''' <summary>
+        ''' Public base URL of the server (e.g. https://gdps.petus.ru). When set,
+        ''' getAccountURL / getCustomContentURL return this instead of the request
+        ''' host — required behind a reverse proxy so the GD client saves accounts
+        ''' and downloads content from the real domain, not the internal address.
+        ''' </summary>
+        Public Property PublicUrl As String = ""
+
         Public Shared Function Load(config As IConfiguration, dbPath As String) As ServerConfig
             Dim c As New ServerConfig With {.DatabasePath = dbPath}
 
@@ -57,6 +65,7 @@ Namespace Services
             c.GameZipPath = Env("PETUS_GAME_ZIP", config("GameZipPath"), c.GameZipPath)
             c.GameExe = Env("PETUS_GAME_EXE", config("GameExe"), c.GameExe)
             c.AdminUser = Env("PETUS_ADMIN_USER", config("AdminUser"), c.AdminUser)
+            c.PublicUrl = If(Env("PETUS_PUBLIC_URL", config("PublicUrl"), ""), "").TrimEnd("/"c)
 
             Dim pre = Env("PETUS_PREACTIVATE", config("PreactivateAccounts"), Nothing)
             If pre IsNot Nothing Then Boolean.TryParse(pre, c.PreactivateAccounts)
