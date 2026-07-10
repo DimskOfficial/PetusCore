@@ -51,11 +51,15 @@ PetusCore ships as an **Application** you can deploy straight from this repo.
 
 1. In Dokploy, **Create → Application → GitHub** and pick
    `DimskOfficial/PetusCore`.
-2. **Build type: Dockerfile** (the repo root `Dockerfile` is auto-detected).
+2. **Build type: Dockerfile.** Exact fields:
+   - **Dockerfile Path:** `Dockerfile`
+   - **Docker Context Path:** `.` (repo root — the Dockerfile COPYs from `src/PetusCore/`)
+   - **Docker Build Stage:** *(leave empty — the final stage is the runtime image)*
 3. Add a **Volume**: mount path **`/data`** (this is where the JSON database
    lives — it must persist across redeploys).
 4. Set **Environment variables** (see the table below). At minimum change
-   `PETUS_API_SECRET` and set `PETUS_ADMIN_USER` to your in-game username.
+   `PETUS_API_SECRET`, set `PETUS_ADMIN_USER` to your in-game username, and set
+   `PETUS_PUBLIC_URL` to your domain (e.g. `https://gdps.petus.ru`).
 5. Expose the app and attach your domain. The container listens on **8080**.
 6. Deploy. Check `https://your-domain/health` → `{"status":"ok",...}`.
 
@@ -71,8 +75,16 @@ and you're live.
 | `PETUS_SERVER_NAME`       | `PetusGDPS`        | Display name on the API/site                       |
 | `PETUS_API_SECRET`        | `change-me...`     | Secret for signing API tokens — **change it**      |
 | `PETUS_ADMIN_USER`        | *(empty)*          | Username auto-promoted to admin on first login     |
+| `PETUS_PUBLIC_URL`        | *(empty)*          | Public base URL (e.g. `https://gdps.petus.ru`). Used for account/content URLs and uploaded-song links behind a proxy — **set this in prod** |
 | `PETUS_PREACTIVATE`       | `true`             | Activate new accounts immediately                  |
 | `PETUS_GAME_DOWNLOAD_URL` | *(empty)*          | Direct link to the modded GD client (site button)  |
+| `PETUS_GAME_ZIP`          | *(empty)*          | Path to a packaged client `.zip` served by the launcher API |
+| `PETUS_GAME_EXE`          | `GeometryDash.exe` | Executable the launcher runs after install         |
+
+> **Reverse proxy note.** Dokploy/Traefik terminates TLS and forwards to the
+> container over HTTP. Always set `PETUS_PUBLIC_URL` so the GD client saves
+> accounts and streams uploaded music from your real `https://` domain instead
+> of the internal container address.
 
 ---
 
