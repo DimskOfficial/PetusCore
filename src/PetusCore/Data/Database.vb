@@ -1,63 +1,64 @@
-Imports System.IO
 Imports PetusCore.Data.Models
+Imports Npgsql
 
 Namespace Data
 
     ''' <summary>
-    ''' The whole PetusGDPS database: a set of JSON-backed tables living in one
-    ''' folder. Provides typed table access, atomic auto-increment IDs and a
-    ''' first-boot seed so the server is instantly usable.
+    ''' The whole PetusGDPS database, backed by PostgreSQL. Each entity is a real
+    ''' relational table (typed columns, not JSON). Provides typed table access,
+    ''' atomic auto-increment IDs and a first-boot seed so the server is instantly
+    ''' usable. Configure the connection with PETUS_DB_URL.
     ''' </summary>
     Public Class Database
 
-        Public ReadOnly Property Root As String
+        Private ReadOnly _ds As NpgsqlDataSource
 
-        Public ReadOnly Property Accounts As JsonTable(Of Account)
-        Public ReadOnly Property Users As JsonTable(Of GdUser)
-        Public ReadOnly Property Levels As JsonTable(Of Level)
-        Public ReadOnly Property Comments As JsonTable(Of Comment)
-        Public ReadOnly Property AccountComments As JsonTable(Of AccountComment)
-        Public ReadOnly Property Songs As JsonTable(Of Song)
-        Public ReadOnly Property Scores As JsonTable(Of LevelScore)
-        Public ReadOnly Property FriendRequests As JsonTable(Of FriendRequest)
-        Public ReadOnly Property Friendships As JsonTable(Of Friendship)
-        Public ReadOnly Property Blocks As JsonTable(Of Block)
-        Public ReadOnly Property Messages As JsonTable(Of Message)
-        Public ReadOnly Property ModActions As JsonTable(Of ModAction)
-        Public ReadOnly Property Tokens As JsonTable(Of ApiToken)
-        Public ReadOnly Property MapPacks As JsonTable(Of MapPack)
-        Public ReadOnly Property Gauntlets As JsonTable(Of Gauntlet)
-        Public ReadOnly Property Quests As JsonTable(Of Quest)
+        Public ReadOnly Property Accounts As PgTable(Of Account)
+        Public ReadOnly Property Users As PgTable(Of GdUser)
+        Public ReadOnly Property Levels As PgTable(Of Level)
+        Public ReadOnly Property Comments As PgTable(Of Comment)
+        Public ReadOnly Property AccountComments As PgTable(Of AccountComment)
+        Public ReadOnly Property Songs As PgTable(Of Song)
+        Public ReadOnly Property Scores As PgTable(Of LevelScore)
+        Public ReadOnly Property FriendRequests As PgTable(Of FriendRequest)
+        Public ReadOnly Property Friendships As PgTable(Of Friendship)
+        Public ReadOnly Property Blocks As PgTable(Of Block)
+        Public ReadOnly Property Messages As PgTable(Of Message)
+        Public ReadOnly Property ModActions As PgTable(Of ModAction)
+        Public ReadOnly Property Tokens As PgTable(Of ApiToken)
+        Public ReadOnly Property MapPacks As PgTable(Of MapPack)
+        Public ReadOnly Property Gauntlets As PgTable(Of Gauntlet)
+        Public ReadOnly Property Quests As PgTable(Of Quest)
+        Public ReadOnly Property Music As PgTable(Of MusicFile)
 
-        Private ReadOnly _counters As JsonTable(Of Counter)
+        Private ReadOnly _counters As PgTable(Of Counter)
         Private ReadOnly _idGate As New Object()
 
-        Public Sub New(root As String)
-            Me.Root = root
-            Directory.CreateDirectory(root)
+        Public Sub New(connectionString As String)
+            If String.IsNullOrWhiteSpace(connectionString) Then
+                Throw New InvalidOperationException("PETUS_DB_URL is required (PostgreSQL connection string).")
+            End If
+            _ds = NpgsqlDataSource.Create(connectionString)
 
-            Accounts = New JsonTable(Of Account)(P("accounts"))
-            Users = New JsonTable(Of GdUser)(P("users"))
-            Levels = New JsonTable(Of Level)(P("levels"))
-            Comments = New JsonTable(Of Comment)(P("comments"))
-            AccountComments = New JsonTable(Of AccountComment)(P("acccomments"))
-            Songs = New JsonTable(Of Song)(P("songs"))
-            Scores = New JsonTable(Of LevelScore)(P("scores"))
-            FriendRequests = New JsonTable(Of FriendRequest)(P("friendreqs"))
-            Friendships = New JsonTable(Of Friendship)(P("friendships"))
-            Blocks = New JsonTable(Of Block)(P("blocks"))
-            Messages = New JsonTable(Of Message)(P("messages"))
-            ModActions = New JsonTable(Of ModAction)(P("modactions"))
-            Tokens = New JsonTable(Of ApiToken)(P("tokens"))
-            MapPacks = New JsonTable(Of MapPack)(P("mappacks"))
-            Gauntlets = New JsonTable(Of Gauntlet)(P("gauntlets"))
-            Quests = New JsonTable(Of Quest)(P("quests"))
-            _counters = New JsonTable(Of Counter)(P("counters"))
+            Accounts = New PgTable(Of Account)(_ds, "accounts")
+            Users = New PgTable(Of GdUser)(_ds, "users")
+            Levels = New PgTable(Of Level)(_ds, "levels")
+            Comments = New PgTable(Of Comment)(_ds, "comments")
+            AccountComments = New PgTable(Of AccountComment)(_ds, "account_comments")
+            Songs = New PgTable(Of Song)(_ds, "songs")
+            Scores = New PgTable(Of LevelScore)(_ds, "scores")
+            FriendRequests = New PgTable(Of FriendRequest)(_ds, "friend_requests")
+            Friendships = New PgTable(Of Friendship)(_ds, "friendships")
+            Blocks = New PgTable(Of Block)(_ds, "blocks")
+            Messages = New PgTable(Of Message)(_ds, "messages")
+            ModActions = New PgTable(Of ModAction)(_ds, "mod_actions")
+            Tokens = New PgTable(Of ApiToken)(_ds, "tokens")
+            MapPacks = New PgTable(Of MapPack)(_ds, "map_packs")
+            Gauntlets = New PgTable(Of Gauntlet)(_ds, "gauntlets")
+            Quests = New PgTable(Of Quest)(_ds, "quests")
+            Music = New PgTable(Of MusicFile)(_ds, "music_files")
+            _counters = New PgTable(Of Counter)(_ds, "counters")
         End Sub
-
-        Private Function P(name As String) As String
-            Return Path.Combine(Root, name & ".json")
-        End Function
 
         ''' <summary>Atomically allocate the next ID for a named sequence.</summary>
         Public Function NextId(sequence As String) As Integer

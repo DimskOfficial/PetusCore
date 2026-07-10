@@ -1,24 +1,41 @@
 # PetusCore — Docker Compose for local testing / Dokploy import.
-# Dokploy can also build straight from the Dockerfile; this file is a handy
-# all-in-one for `docker compose up`.
+# Brings up PostgreSQL + the core together. Dokploy can also build straight
+# from the Dockerfile and use a managed Postgres service instead.
 
 services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: petuscore-pg
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=petus
+      - POSTGRES_PASSWORD=change-me-please
+      - POSTGRES_DB=petusgdps
+    volumes:
+      - petuscore-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U petus -d petusgdps"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   petuscore:
     build: .
     container_name: petuscore
     restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
     ports:
       - "8080:8080"
     environment:
       - PORT=8080
-      - PETUS_DB_PATH=/data
+      - PETUS_DB_URL=Host=postgres;Port=5432;Username=petus;Password=change-me-please;Database=petusgdps
       - PETUS_SERVER_NAME=PetusGDPS
       - PETUS_API_SECRET=change-me-please
       - PETUS_ADMIN_USER=Dimsk          # this username becomes admin on first login
       - PETUS_PREACTIVATE=true
       - PETUS_GAME_DOWNLOAD_URL=         # direct link to the modded GD client
-    volumes:
-      - petuscore-data:/data
 
 volumes:
-  petuscore-data:
+  petuscore-pgdata:

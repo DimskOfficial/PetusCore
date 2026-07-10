@@ -11,8 +11,8 @@ Namespace Services
 
         Public Const Version As String = "1.0.0"
 
-        ''' <summary>Absolute path to the JSON database folder.</summary>
-        Public Property DatabasePath As String
+        ''' <summary>PostgreSQL connection string (PETUS_DB_URL).</summary>
+        Public Property DbUrl As String
 
         ''' <summary>Salt appended before hashing GJP2 passwords (matches GD).</summary>
         Public Property Gjp2Salt As String = "mI29fmAnxgTs"
@@ -55,8 +55,8 @@ Namespace Services
         ''' </summary>
         Public Property PublicUrl As String = ""
 
-        Public Shared Function Load(config As IConfiguration, dbPath As String) As ServerConfig
-            Dim c As New ServerConfig With {.DatabasePath = dbPath}
+        Public Shared Function Load(config As IConfiguration, dbUrl As String) As ServerConfig
+            Dim c As New ServerConfig With {.DbUrl = dbUrl}
 
             c.ApiSecret = Env("PETUS_API_SECRET", config("ApiSecret"), c.ApiSecret)
             c.ServerName = Env("PETUS_SERVER_NAME", config("ServerName"), c.ServerName)
