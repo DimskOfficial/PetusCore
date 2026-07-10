@@ -31,6 +31,8 @@ Namespace Data.Models
         ' Account recovery
         Public Property RecoveryCode As String = ""
         Public Property RecoveryExpires As Long = 0
+        ''' <summary>Linked Petus ID subject (OAuth `sub`). Empty = not linked.</summary>
+        Public Property PetusId As String = ""
     End Class
 
     ''' <summary>In-game user (stats + icons), linked to an account via ExtID.</summary>
