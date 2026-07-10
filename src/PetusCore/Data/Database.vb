@@ -84,6 +84,12 @@ Namespace Data
             Return Accounts.Read(Function(r) r.Find(Function(a) a.AccountID = accountID))
         End Function
 
+        ''' <summary>Find the account linked to a given Petus ID subject, if any.</summary>
+        Public Function FindAccountByPetusId(petusId As String) As Account
+            If String.IsNullOrEmpty(petusId) Then Return Nothing
+            Return Accounts.Read(Function(r) r.Find(Function(a) a.PetusId = petusId))
+        End Function
+
         ''' <summary>Get (or lazily create) the in-game user row for an account/UDID.</summary>
         Public Function ResolveUser(extID As String, userName As String) As GdUser
             Dim existing = Users.Read(Function(r) r.Find(Function(u) u.ExtID = extID))

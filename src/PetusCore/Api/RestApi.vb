@@ -265,6 +265,7 @@ Namespace Api
             Return New With {
                 acc.AccountID, acc.UserName, acc.Email, acc.IsActive, acc.IsBanned,
                 .isAdmin = acc.IsAdmin > 0, .modLevel = acc.ModLevel, acc.RegisterDate,
+                .petusLinked = acc.PetusId <> "",
                 .youtube = acc.Youtube, .twitter = acc.Twitter, .twitch = acc.Twitch,
                 .discord = acc.Discord, .instagram = acc.Instagram, .tiktok = acc.Tiktok,
                 .stats = If(user Is Nothing, Nothing, New With {user.Stars, user.Demons, user.Diamonds, user.Coins, user.UserCoins, .creatorPoints = user.CreatorPoints})
