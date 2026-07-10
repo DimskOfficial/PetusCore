@@ -11,7 +11,7 @@ typed columns (no JSON blobs). Point it at any Postgres with `PETUS_DB_URL`.
 
 > Inspired by / compatible with the account & hashing conventions of
 > [GMDprivateServer](https://github.com/Cvolton/GMDprivateServer), but a
-> completely independent VB.NET implementation with JSON storage.
+> completely independent VB.NET implementation on PostgreSQL.
 
 ---
 
@@ -37,7 +37,7 @@ typed columns (no JSON blobs). Point it at any Postgres with `PETUS_DB_URL`.
   (rate / set daily / delete), song moderation, audit log
 
 **Ops**
-- Single JSON-file storage, atomic writes, thread-safe
+- Relational PostgreSQL storage (typed columns), transactional writes
 - BCrypt password hashing — interoperable with PHP `password_hash` (`$2y$`)
 - Docker image + Compose, health check, 100% env-var configurable
 - Built and end-to-end tested on **.NET 8 SDK** (see the test flow below)
@@ -145,11 +145,10 @@ grant moderator        -> ok
 ```
 PetusCore/
 ├─ Dockerfile, docker-compose.yml, .env.example
-├─ database/                 # JSON DB (created/seeded at runtime)
 ├─ docs/API.md               # full REST API reference
 └─ src/PetusCore/
    ├─ Program.vb             # bootstrap: DI, CORS, endpoints
-   ├─ Data/                  # JsonTable, Database, models
+   ├─ Data/                  # PgTable, Database, models
    ├─ Services/              # PasswordService, HashService, TokenService, config
    ├─ Endpoints/             # Geometry Dash game protocol
    └─ Api/                   # REST API + admin API
@@ -161,9 +160,9 @@ PetusCore/
 
 - This is a fan project / server emulator for private use. Geometry Dash is a
   trademark of RobTop Games. You are responsible for how you host and use it.
-- JSON storage is great for small/medium servers and easy hosting. For very
-  large player counts you'd want to shard or move hot tables to a database —
-  the storage layer (`Data/Json.vb`) is isolated to make that swap easy.
+- PostgreSQL storage: each entity is a typed relational table, created on boot.
+  The storage layer (`Data/PgTable.vb`) is a thin generic mapper — swap or tune
+  it (indexes, per-table SQL) without touching endpoint code.
 - Some in-game systems (map packs, gauntlets, quests, rewards, messaging) are
   present as valid stub responses so the client never hangs; they can be
   fleshed out incrementally.
