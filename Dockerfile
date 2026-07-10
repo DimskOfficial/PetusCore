@@ -10,6 +10,12 @@ RUN dotnet publish ./PetusCore/PetusCore.vbproj -c Release -o /app /p:UseAppHost
 
 FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS runtime
 WORKDIR /app
+
+# curl is needed for the Docker HEALTHCHECK below (not in the base image).
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends curl \
+    && rm -rf /var/lib/apt/lists/*
+
 COPY --from=build /app ./
 
 # The JSON database lives here — mount a Dokploy volume at /data to persist it.
@@ -22,6 +28,6 @@ EXPOSE 8080
 RUN mkdir -p /data
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
-  CMD wget -qO- http://localhost:8080/health || exit 1
+  CMD curl -fsS http://localhost:8080/health || exit 1
 
 ENTRYPOINT ["dotnet", "PetusCore.dll"]

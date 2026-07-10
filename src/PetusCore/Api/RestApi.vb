@@ -1,4 +1,5 @@
 Imports System.Text.Json
+Imports System.IO
 Imports Microsoft.AspNetCore.Builder
 Imports Microsoft.AspNetCore.Http
 Imports Microsoft.Extensions.DependencyInjection
@@ -170,6 +171,60 @@ Namespace Api
 
             app.MapGet("/api/songs", Function()
                 Return Ok(db.Songs.All().Select(Function(s) New With {s.ID, s.Name, .artist = s.ArtistName, .size = s.Size, .url = s.Download, .uploadedBy = s.UploadedBy}))
+            End Function)
+
+            ' ---- Music file upload (drag & drop) -------------------------
+            ' Accepts a multipart .mp3, stores it under <db>/music, and serves it
+            ' back at /music/<id>.mp3 so the GD client can stream it directly.
+            app.MapPost("/api/songs/upload", Function(ctx As HttpContext)
+                Dim acc = RequireAuth(ctx, tokens)
+                If acc Is Nothing Then Return [Error](ctx, 401, "unauthorized")
+                If Not ctx.Request.HasFormContentType Then Return [Error](ctx, 400, "expected_multipart")
+
+                Dim form = ctx.Request.ReadFormAsync().Result
+                Dim upload = If(form.Files.Count > 0, form.Files(0), Nothing)
+                If upload Is Nothing OrElse upload.Length = 0 Then Return [Error](ctx, 400, "no_file")
+                If upload.Length > 25 * 1024 * 1024 Then Return [Error](ctx, 413, "file_too_large")
+
+                Dim ext = Path.GetExtension(upload.FileName).ToLowerInvariant()
+                If ext <> ".mp3" Then Return [Error](ctx, 415, "only_mp3")
+
+                Dim id = db.NextId("songID")
+                Dim musicDir = Path.Combine(cfg.DatabasePath, "music")
+                Directory.CreateDirectory(musicDir)
+                Dim dest = Path.Combine(musicDir, id & ".mp3")
+                Using fs = File.Create(dest)
+                    upload.CopyTo(fs)
+                End Using
+
+                Dim sizeMb = Math.Round(upload.Length / 1024.0 / 1024.0, 2)
+                Dim baseUrl = If(cfg.PublicUrl <> "", cfg.PublicUrl, $"{ctx.Request.Scheme}://{ctx.Request.Host}")
+                Dim name = If(form("name").ToString(), "")
+                If name = "" Then name = Path.GetFileNameWithoutExtension(upload.FileName)
+                Dim artist = If(form("artist").ToString(), "")
+                If artist = "" Then artist = acc.UserName
+
+                Dim song As New Song With {
+                    .ID = id,
+                    .Name = name,
+                    .ArtistName = artist,
+                    .ArtistID = acc.AccountID,
+                    .Download = $"{baseUrl}/music/{id}.mp3",
+                    .Size = sizeMb,
+                    .UploadedBy = acc.AccountID
+                }
+                db.Songs.Write(Sub(r) r.Add(song))
+                Return Ok(New With {.ok = True, .id = song.ID, .url = song.Download, .size = song.Size, .name = song.Name})
+            End Function)
+
+            ' Serve uploaded mp3s to the GD client (range-enabled for streaming).
+            app.MapGet("/music/{name}", Function(ctx As HttpContext, name As String)
+                Dim safe = Path.GetFileName(name) ' strip any path traversal
+                Dim full = Path.Combine(cfg.DatabasePath, "music", safe)
+                If Not full.EndsWith(".mp3", StringComparison.OrdinalIgnoreCase) OrElse Not File.Exists(full) Then
+                    Return Results.NotFound()
+                End If
+                Return Results.File(full, "audio/mpeg", enableRangeProcessing:=True)
             End Function)
 
             ' ---- Levels (browse) -----------------------------------------

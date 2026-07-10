@@ -97,6 +97,14 @@ Namespace Endpoints
         End Sub
 
         Private Function BaseUrl(ctx As HttpContext) As String
+            ' Prefer the configured public URL (needed behind a reverse proxy so
+            ' the GD client saves accounts / content at the real domain). Fall
+            ' back to the request's own scheme+host for local runs.
+            Dim cfg = ctx.RequestServices.GetService(GetType(ServerConfig))
+            If cfg IsNot Nothing Then
+                Dim pub = DirectCast(cfg, ServerConfig).PublicUrl
+                If Not String.IsNullOrWhiteSpace(pub) Then Return pub
+            End If
             Return $"{ctx.Request.Scheme}://{ctx.Request.Host}"
         End Function
 

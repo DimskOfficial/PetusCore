@@ -137,8 +137,11 @@ Namespace Data
 
         Public Sub EnsureSeeded()
             If Songs.Count() = 0 Then
+                ' Allocate the seed song's ID through the counter so later uploads
+                ' (which use NextId) never collide with it.
+                Dim seedId = NextId("songID")
                 Songs.Write(Sub(r)
-                                r.Add(New Song With {.ID = 1, .Name = "PetusGDPS Theme", .ArtistID = 1, .ArtistName = "Petus", .Size = 3.14, .Download = ""})
+                                r.Add(New Song With {.ID = seedId, .Name = "PetusGDPS Theme", .ArtistID = 1, .ArtistName = "Petus", .Size = 3.14, .Download = ""})
                             End Sub)
             End If
             ' Everything else is created on demand.
