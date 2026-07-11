@@ -82,6 +82,7 @@ Module Program
         app.UseRouting()
 
         ' Map the GD game endpoints and the website REST API.
+        GdAuth.Init(app.Services.GetRequiredService(Of TokenService)())
         GdEndpoints.Map(app)
         RestApi.Map(app)
         LauncherApi.Map(app)
