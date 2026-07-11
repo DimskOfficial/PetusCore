@@ -9,7 +9,7 @@ Namespace Services
     ''' </summary>
     Public Class ServerConfig
 
-        Public Const Version As String = "1.2.0-roles-ban-cp"
+        Public Const Version As String = "1.3.0-profile-comments"
 
         ''' <summary>PostgreSQL connection string (PETUS_DB_URL).</summary>
         Public Property DbUrl As String

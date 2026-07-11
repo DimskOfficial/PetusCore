@@ -85,6 +85,29 @@ Namespace Api
                 Return RestApi.Ok(New With {.ok = True})
             End Function)
 
+            ' ---- Post a comment on a user's profile ----------------------
+            app.MapPost("/api/users/{name}/comments", Function(ctx As HttpContext, name As String)
+                Dim acc = RestApi.RequireAuth(ctx, tokens)
+                If acc Is Nothing Then Return RestApi.[Error](ctx, 401, "unauthorized")
+                Dim target = db.FindAccountByName(name)
+                If target Is Nothing Then Return RestApi.[Error](ctx, 404, "not_found")
+
+                Dim req = RestApi.ReadJson(ctx)
+                Dim text = RestApi.Str(req, "content").Trim()
+                If text = "" OrElse text.Length > 500 Then Return RestApi.[Error](ctx, 400, "bad_content")
+
+                Dim user = db.ResolveUser(acc.AccountID.ToString(), acc.UserName)
+                Dim c As New AccountComment With {
+                    .CommentID = db.NextId("commentID"),
+                    .AccountID = target.AccountID,
+                    .UserID = user.UserID,
+                    .Content = Convert.ToBase64String(Encoding.UTF8.GetBytes(text)),
+                    .Timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds()
+                }
+                db.AccountComments.Write(Sub(r) r.Add(c))
+                Return RestApi.Ok(New With {.ok = True, .id = c.CommentID})
+            End Function)
+
             ' ---- Mod uploads the 50%-progress preview image URL ----------
             app.MapPost("/api/levels/{id:int}/preview", Function(ctx As HttpContext, id As Integer)
                 Dim acc = RestApi.RequireAuth(ctx, tokens)
@@ -184,7 +207,7 @@ Namespace Api
                     .stats = If(user Is Nothing, Nothing, New With {user.Stars, user.Demons, user.Diamonds, user.Coins, user.UserCoins, .creatorPoints = user.CreatorPoints, user.Moons, user.CompletedLvls}),
                     .badges = badges,
                     .levels = myLevels.Select(Function(l) New With {l.LevelID, l.LevelName, l.Downloads, l.Likes, l.Stars, l.Difficulty, .previewUrl = l.PreviewUrl}).ToList(),
-                    .comments = pComments.Select(Function(c) New With {c.CommentID, .content = DecodeB64(c.Content), c.Likes, c.Timestamp}).ToList()
+                    .comments = pComments.Select(Function(c) New With {c.CommentID, .content = DecodeB64(c.Content), c.Likes, c.Timestamp, .author = AuthorName(db, c.UserID)}).ToList()
                 })
             End Function)
         End Sub
@@ -208,6 +231,12 @@ Namespace Api
             Catch
                 Return s
             End Try
+        End Function
+
+        ' Resolve a commenter's display name from their in-game user id.
+        Private Function AuthorName(db As Database, userID As Integer) As String
+            Dim u = db.FindUserById(userID)
+            Return If(u Is Nothing, "Player", u.UserName)
         End Function
 
     End Module
