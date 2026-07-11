@@ -231,6 +231,8 @@ Namespace Api
                         .cube = user.AccIcon, .color1 = user.Color1, .color2 = user.Color2,
                         .color3 = user.Color3, .glow = user.AccGlow
                     }),
+                    .experience = RestApi.ExperienceFor(user),
+                    .level = RestApi.LevelFor(RestApi.ExperienceFor(user)),
                     .stats = If(user Is Nothing, Nothing, New With {user.Stars, user.Demons, user.Diamonds, user.Coins, user.UserCoins, .creatorPoints = user.CreatorPoints, user.Moons, user.CompletedLvls}),
                     .badges = badges,
                     .levels = myLevels.Select(Function(l) New With {l.LevelID, l.LevelName, l.Downloads, l.Likes, l.Stars, l.Difficulty, .previewUrl = l.PreviewUrl}).ToList(),

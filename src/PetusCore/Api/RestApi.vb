@@ -270,8 +270,41 @@ Namespace Api
 
         ' ================= helpers ====================================
 
+        ''' <summary>
+        ''' Total experience for a user, using the Better Progression formula
+        ''' (stars*5 + moons*5 + diamonds*2 + secretCoins*100 + userCoins*20 +
+        ''' demons*75 + creatorPoints*5000). Computed from stats we already store.
+        ''' </summary>
+        Public Function ExperienceFor(user As Data.Models.GdUser) As Long
+            If user Is Nothing Then Return 0
+            Dim xp As Long = 0
+            xp += CLng(user.Stars) * 5
+            xp += CLng(user.Moons) * 5
+            xp += CLng(user.Diamonds) * 2
+            xp += CLng(user.Coins) * 100      ' secret coins
+            xp += CLng(user.UserCoins) * 20
+            xp += CLng(user.Demons) * 75
+            xp += CLng(user.CreatorPoints) * 5000
+            Return xp
+        End Function
+
+        ''' <summary>Player level from total XP. Each level costs 1000 more XP than
+        ''' the previous (level 1: 1000, level 2: +2000, ...), a smooth curve.</summary>
+        Public Function LevelFor(xp As Long) As Integer
+            Dim lvl = 0
+            Dim need As Long = 1000
+            Dim acc As Long = 0
+            While acc + need <= xp AndAlso lvl < 999
+                acc += need
+                lvl += 1
+                need += 1000
+            End While
+            Return lvl
+        End Function
+
         Public Function PublicAccount(acc As Account, db As Database) As Object
             Dim user = db.FindUserByExt(acc.AccountID.ToString())
+            Dim xp = ExperienceFor(user)
             Return New With {
                 acc.AccountID, acc.UserName, acc.Email, acc.IsActive, acc.IsBanned,
                 .banReason = acc.BanReason, .banUntil = acc.BanUntil,
@@ -285,6 +318,7 @@ Namespace Api
                     .color3 = user.Color3, .glow = user.AccGlow, .iconType = user.IconType,
                     .displayIcon = user.Icon
                 }),
+                .experience = xp, .level = LevelFor(xp),
                 .stats = If(user Is Nothing, Nothing, New With {user.Stars, user.Demons, user.Diamonds, .moons = user.Moons, user.Coins, user.UserCoins, .creatorPoints = user.CreatorPoints})
             }
         End Function
