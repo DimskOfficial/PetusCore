@@ -278,7 +278,8 @@ Namespace Api
             Return New With {
                 l.LevelID, l.LevelName, l.LevelDesc, .author = l.UserName, l.UserID,
                 l.Downloads, l.Likes, l.Stars, l.Difficulty, l.Demon, l.Featured, l.Epic,
-                l.Coins, l.SongID, .length = l.Length, .uploadDate = l.UploadDate, .unlisted = l.Unlisted
+                l.Coins, l.SongID, .length = l.Length, .uploadDate = l.UploadDate, .unlisted = l.Unlisted,
+                .previewUrl = l.PreviewUrl
             }
         End Function
 

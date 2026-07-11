@@ -2,6 +2,8 @@ Imports Microsoft.AspNetCore.Builder
 Imports Microsoft.AspNetCore.Http
 Imports Microsoft.Extensions.DependencyInjection
 Imports PetusCore.Data
+Imports PetusCore.Data.Models
+Imports PetusCore.Endpoints
 Imports PetusCore.Services
 
 Namespace Api
@@ -40,8 +42,43 @@ Namespace Api
                 Return RestApi.Ok(New With {.token = tok.Token, .expiresAt = tok.ExpiresAt, .account = RestApi.PublicAccount(acc, db)})
             End Function)
 
-            ' Link a Petus ID identity to a GDPS account by verifying in-game
-            ' username + password, then log in.
+            ' Resolve a Petus ID to a GDPS account, creating one on first sight.
+            ' This is the only way accounts are made now — there is no in-game or
+            ' on-site register/password. The account gets a random unusable
+            ' password so nobody can log into the game by password; the launcher
+            ' authenticates the client with the returned token instead.
+            app.MapPost("/api/petusid/resolve", Function(ctx As HttpContext)
+                If Not ServiceAuthOk(ctx, cfg) Then Return RestApi.[Error](ctx, 401, "service_unauthorized")
+                Dim req = RestApi.ReadJson(ctx)
+                Dim petusId = RestApi.Str(req, "petusId")
+                If petusId = "" Then Return RestApi.[Error](ctx, 400, "petusid_required")
+
+                Dim acc = db.FindAccountByPetusId(petusId)
+                If acc Is Nothing Then
+                    Dim preferred = RestApi.Str(req, "username")
+                    Dim email = RestApi.Str(req, "email")
+                    Dim userName = UniqueUserName(db, preferred, petusId)
+                    Dim randomPass = Guid.NewGuid().ToString("N") & Guid.NewGuid().ToString("N")
+                    acc = New Account With {
+                        .AccountID = db.NextId("accountID"),
+                        .UserName = userName,
+                        .Password = pw.HashPassword(randomPass),
+                        .Gjp2 = pw.HashGjp2(randomPass),
+                        .Email = email,
+                        .PetusId = petusId,
+                        .IsActive = True,
+                        .RegisterDate = GdHelpers.Now()
+                    }
+                    db.Accounts.Write(Sub(r) r.Add(acc))
+                    db.ResolveUser(acc.AccountID.ToString(), userName)
+                    db.Log(acc.AccountID, "provisionPetusId", petusId, userName)
+                End If
+                If acc.IsBanned Then Return RestApi.[Error](ctx, 403, "banned")
+
+                MaybeBootstrapAdmin(acc, cfg, db)
+                Dim tok = tokens.Issue(acc.AccountID)
+                Return RestApi.Ok(New With {.token = tok.Token, .expiresAt = tok.ExpiresAt, .account = RestApi.PublicAccount(acc, db)})
+            End Function)
             app.MapPost("/api/petusid/link", Function(ctx As HttpContext)
                 If Not ServiceAuthOk(ctx, cfg) Then Return RestApi.[Error](ctx, 401, "service_unauthorized")
                 Dim req = RestApi.ReadJson(ctx)
@@ -91,6 +128,24 @@ Namespace Api
         Private Function ServiceAuthOk(ctx As HttpContext, cfg As ServerConfig) As Boolean
             Dim provided = ctx.Request.Headers("X-Service-Secret").ToString()
             Return provided <> "" AndAlso provided = cfg.ApiSecret
+        End Function
+
+        ' Build a unique in-game username from the Petus ID nick (fallback to sub).
+        Private Function UniqueUserName(db As Database, preferred As String, petusId As String) As String
+            Dim base As String = New String((If(preferred, "")).Where(Function(c) Char.IsLetterOrDigit(c) OrElse c = "_"c).ToArray())
+            If base.Length < 3 Then base = "petus"
+            If base.Length > 16 Then base = base.Substring(0, 16)
+            Dim candidate = base
+            Dim n = 0
+            While db.FindAccountByName(candidate) IsNot Nothing
+                n += 1
+                candidate = base & n.ToString()
+                If n > 9999 Then
+                    candidate = base & petusId.Substring(0, Math.Min(6, petusId.Length))
+                    Exit While
+                End If
+            End While
+            Return candidate
         End Function
 
     End Module
