@@ -108,6 +108,33 @@ Namespace Api
                 Return RestApi.Ok(New With {.ok = True, .id = c.CommentID})
             End Function)
 
+            ' ---- Submit a moderator application --------------------------
+            app.MapPost("/api/mod-application", Function(ctx As HttpContext)
+                Dim acc = RestApi.RequireAuth(ctx, tokens)
+                If acc Is Nothing Then Return RestApi.[Error](ctx, 401, "unauthorized")
+                Dim req = RestApi.ReadJson(ctx)
+                Dim role = RestApi.Str(req, "role", "mod").ToLower()
+                If role <> "mod" AndAlso role <> "elder" AndAlso role <> "leaderboard" Then role = "mod"
+                Dim msg = RestApi.Str(req, "message").Trim()
+                If msg = "" OrElse msg.Length > 2000 Then Return RestApi.[Error](ctx, 400, "bad_content")
+
+                ' One pending application per account.
+                Dim hasPending = db.ModApplications.Read(Function(r) r.Any(Function(a) a.AccountID = acc.AccountID AndAlso a.Status = 0))
+                If hasPending Then Return RestApi.[Error](ctx, 409, "already_pending")
+
+                Dim app2 As New ModApplication With {
+                    .ID = db.NextId("modApplication"),
+                    .AccountID = acc.AccountID,
+                    .UserName = acc.UserName,
+                    .Role = role,
+                    .Message = Convert.ToBase64String(Encoding.UTF8.GetBytes(msg)),
+                    .Status = 0,
+                    .Timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds()
+                }
+                db.ModApplications.Write(Sub(r) r.Add(app2))
+                Return RestApi.Ok(New With {.ok = True, .id = app2.ID})
+            End Function)
+
             ' ---- Mod uploads the 50%-progress preview image URL ----------
             app.MapPost("/api/levels/{id:int}/preview", Function(ctx As HttpContext, id As Integer)
                 Dim acc = RestApi.RequireAuth(ctx, tokens)

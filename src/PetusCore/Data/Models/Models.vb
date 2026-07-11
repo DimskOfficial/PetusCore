@@ -171,6 +171,20 @@ Namespace Data.Models
         Public Property Timestamp As Long = 0
     End Class
 
+    ''' <summary>A moderator application submitted from the website.</summary>
+    Public Class ModApplication
+        Public Property ID As Integer
+        Public Property AccountID As Integer
+        Public Property UserName As String = ""
+        ''' <summary>Requested role: "mod", "elder", or "leaderboard".</summary>
+        Public Property Role As String = "mod"
+        ''' <summary>Applicant's message (base64).</summary>
+        Public Property Message As String = ""
+        ''' <summary>0 pending, 1 approved, 2 rejected.</summary>
+        Public Property Status As Integer = 0
+        Public Property Timestamp As Long = 0
+    End Class
+
     ''' <summary>A Newgrounds / custom song entry.</summary>
     Public Class Song
         Public Property ID As Integer

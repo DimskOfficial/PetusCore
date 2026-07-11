@@ -89,10 +89,24 @@ Module Program
 
         ' Simple health check for Dokploy.
         app.MapGet("/health", Function() Results.Ok(New With {.status = "ok", .server = "PetusCore", .version = ServerConfig.Version}))
-        app.MapGet("/", Function() Results.Text(
-            $"PetusCore {ServerConfig.Version} — PetusGDPS server core is running." & vbLf &
-            "Game endpoints: /accounts/*, /getGJLevels21.php, etc." & vbLf &
-            "REST API: /api/*  |  Health: /health", "text/plain"))
+
+        ' Plain white landing page (VK-2010 style) for cgdps.petus.ru.
+        Dim landing = "<!doctype html><html lang=""ru""><head><meta charset=""utf-8"">" &
+            "<meta name=""viewport"" content=""width=device-width, initial-scale=1"">" &
+            "<title>PetusCore</title><style>" &
+            "html,body{height:100%;margin:0}" &
+            "body{background:#fff;color:#333;font-family:Tahoma,Geneva,sans-serif;" &
+            "display:flex;align-items:center;justify-content:center;text-align:center}" &
+            ".box{max-width:520px;padding:24px}" &
+            ".t{font-size:22px;color:#2b587a;font-weight:bold;margin-bottom:8px}" &
+            ".s{font-size:13px;color:#555;line-height:1.6}" &
+            "a{color:#2b587a;text-decoration:none}a:hover{text-decoration:underline}" &
+            "</style></head><body><div class=""box"">" &
+            "<div class=""t"">PetusCore</div>" &
+            "<div class=""s"">Игровое ядро приватного сервера Geometry Dash.<br>" &
+            "Это технический сервис. Основной сайт: <a href=""https://gdps.petus.ru"">gdps.petus.ru</a>.</div>" &
+            "</div></body></html>"
+        app.MapGet("/", Function() Results.Content(landing, "text/html; charset=utf-8"))
 
         app.Run()
     End Sub

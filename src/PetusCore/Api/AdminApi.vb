@@ -112,6 +112,48 @@ Namespace Api
                 Return RestApi.Ok(New With {.ok = True, .isLeaderboardMod = acc.IsLeaderboardMod > 0})
             End Function)
 
+            ' ---- Moderator applications ----------------------------------
+            app.MapGet("/api/admin/applications", Function(ctx As HttpContext)
+                Dim admin = RequireAdmin(ctx, tokens, db)
+                If admin Is Nothing Then Return RestApi.[Error](ctx, 403, "forbidden")
+                Dim list = db.ModApplications.All().
+                    OrderByDescending(Function(a) a.Timestamp).
+                    Select(Function(a) New With {
+                        a.ID, a.AccountID, a.UserName, a.Role, a.Status, a.Timestamp,
+                        .message = DecodeB64(a.Message)
+                    })
+                Return RestApi.Ok(list)
+            End Function)
+
+            ' Decide an application: approve (grants the role) or reject.
+            app.MapPost("/api/admin/applications/{id:int}", Function(ctx As HttpContext, id As Integer)
+                Dim admin = RequireAdmin(ctx, tokens, db)
+                If admin Is Nothing Then Return RestApi.[Error](ctx, 403, "forbidden")
+                Dim req = RestApi.ReadJson(ctx)
+                Dim approve = RestApi.IntOf(req, "approve") > 0
+                Dim appRec = db.ModApplications.Read(Function(r) r.Find(Function(a) a.ID = id))
+                If appRec Is Nothing Then Return RestApi.[Error](ctx, 404, "not_found")
+
+                If approve Then
+                    Dim acc = db.FindAccount(appRec.AccountID)
+                    If acc IsNot Nothing Then
+                        Select Case appRec.Role
+                            Case "elder" : acc.ModLevel = 2
+                            Case "leaderboard" : acc.IsLeaderboardMod = 1
+                            Case Else : acc.ModLevel = Math.Max(acc.ModLevel, 1)
+                        End Select
+                        db.SaveAccount(acc)
+                    End If
+                End If
+                Dim newStatus = If(approve, 1, 2)
+                db.ModApplications.Write(Sub(r)
+                                             Dim a = r.Find(Function(x) x.ID = id)
+                                             If a IsNot Nothing Then a.Status = newStatus
+                                         End Sub)
+                db.Log(admin.AccountID, If(approve, "approveModApp", "rejectModApp"), appRec.AccountID.ToString(), appRec.Role)
+                Return RestApi.Ok(New With {.ok = True, .status = newStatus})
+            End Function)
+
             ' ---- Level moderation ----------------------------------------
             app.MapGet("/api/admin/levels", Function(ctx As HttpContext)
                 Dim admin = RequireMod(ctx, tokens, db)
@@ -309,6 +351,15 @@ Namespace Api
             If acc Is Nothing Then Return Nothing
             If acc.IsAdmin > 0 OrElse acc.ModLevel > 0 Then Return acc
             Return Nothing
+        End Function
+
+        Private Function DecodeB64(s As String) As String
+            If String.IsNullOrEmpty(s) Then Return ""
+            Try
+                Return System.Text.Encoding.UTF8.GetString(Convert.FromBase64String(s))
+            Catch
+                Return s
+            End Try
         End Function
 
     End Module

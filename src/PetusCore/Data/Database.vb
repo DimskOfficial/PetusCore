@@ -32,6 +32,7 @@ Namespace Data
         Public ReadOnly Property Music As PgTable(Of MusicFile)
         Public ReadOnly Property DefaultLevels As PgTable(Of DefaultLevel)
         Public ReadOnly Property LevelLikes As PgTable(Of LevelLike)
+        Public ReadOnly Property ModApplications As PgTable(Of ModApplication)
 
         Private ReadOnly _counters As PgTable(Of Counter)
         Private ReadOnly _idGate As New Object()
@@ -61,6 +62,7 @@ Namespace Data
             Music = New PgTable(Of MusicFile)(_ds, "music_files")
             DefaultLevels = New PgTable(Of DefaultLevel)(_ds, "default_levels")
             LevelLikes = New PgTable(Of LevelLike)(_ds, "level_likes")
+            ModApplications = New PgTable(Of ModApplication)(_ds, "mod_applications")
             _counters = New PgTable(Of Counter)(_ds, "counters")
         End Sub
 
