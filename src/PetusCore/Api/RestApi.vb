@@ -36,6 +36,14 @@ Namespace Api
                 .download = cfg.GameDownloadUrl
             }))
 
+            ' Game update manifest for the launcher. Served straight from the core
+            ' (Kestrel, no CDN cache) so a new build is picked up immediately; the
+            ' .zip itself is a versioned, cache-proof CDN URL.
+            app.MapGet("/api/game/manifest", Function() Ok(New With {
+                .version = cfg.GameVersion,
+                .url = cfg.GameZipUrl
+            }))
+
             app.MapGet("/api/stats", Function()
                 Return Ok(New With {
                     .accounts = db.Accounts.Count(),

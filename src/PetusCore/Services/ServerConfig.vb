@@ -9,7 +9,7 @@ Namespace Services
     ''' </summary>
     Public Class ServerConfig
 
-        Public Const Version As String = "1.5.0-gd-prefix"
+        Public Const Version As String = "1.6.0-game-manifest"
 
         ''' <summary>PostgreSQL connection string (PETUS_DB_URL).</summary>
         Public Property DbUrl As String
@@ -44,6 +44,12 @@ Namespace Services
         ''' <summary>Executable name the launcher runs after install (inside the zip).</summary>
         Public Property GameExe As String = "GeometryDash.exe"
 
+        ''' <summary>Current game build version the launcher should install.</summary>
+        Public Property GameVersion As String = "1.0.1"
+
+        ''' <summary>Download URL of the current game .zip (versioned, CDN-cache-proof).</summary>
+        Public Property GameZipUrl As String = "https://cdn.petus.goonhost.rocks/game/petusgdps-1.0.1.zip"
+
         ''' <summary>Username auto-promoted to admin on login (bootstrap the first admin).</summary>
         Public Property AdminUser As String = ""
 
@@ -64,6 +70,8 @@ Namespace Services
             c.GameDownloadUrl = Env("PETUS_GAME_DOWNLOAD_URL", config("GameDownloadUrl"), c.GameDownloadUrl)
             c.GameZipPath = Env("PETUS_GAME_ZIP", config("GameZipPath"), c.GameZipPath)
             c.GameExe = Env("PETUS_GAME_EXE", config("GameExe"), c.GameExe)
+            c.GameVersion = Env("PETUS_GAME_VERSION", config("GameVersion"), c.GameVersion)
+            c.GameZipUrl = Env("PETUS_GAME_ZIP_URL", config("GameZipUrl"), c.GameZipUrl)
             c.AdminUser = Env("PETUS_ADMIN_USER", config("AdminUser"), c.AdminUser)
             c.PublicUrl = If(Env("PETUS_PUBLIC_URL", config("PublicUrl"), ""), "").TrimEnd("/"c)
 
