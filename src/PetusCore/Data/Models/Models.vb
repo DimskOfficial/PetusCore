@@ -25,6 +25,8 @@ Namespace Data.Models
         Public Property Discord As String = ""
         Public Property Instagram As String = ""
         Public Property Tiktok As String = ""
+        ''' <summary>Link to the user's Petus.ru social page.</summary>
+        Public Property PetusPage As String = ""
         ' Roles / moderation
         Public Property ModLevel As Integer = 0     ' 0 none, 1 mod, 2 elder
         ''' <summary>Leaderboard moderator (new in GD 2.2). Independent of ModLevel.</summary>

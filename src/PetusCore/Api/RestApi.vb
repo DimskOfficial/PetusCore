@@ -122,6 +122,7 @@ Namespace Api
                 acc.Discord = Str(req, "discord", acc.Discord)
                 acc.Instagram = Str(req, "instagram", acc.Instagram)
                 acc.Tiktok = Str(req, "tiktok", acc.Tiktok)
+                acc.PetusPage = Str(req, "petusPage", acc.PetusPage)
                 db.SaveAccount(acc)
                 Return Ok(New With {.ok = True})
             End Function)
@@ -314,6 +315,7 @@ Namespace Api
                 .petusLinked = acc.PetusId <> "",
                 .youtube = acc.Youtube, .twitter = acc.Twitter, .twitch = acc.Twitch,
                 .discord = acc.Discord, .instagram = acc.Instagram, .tiktok = acc.Tiktok,
+                .petusPage = acc.PetusPage,
                 .icon = If(user Is Nothing, Nothing, New With {
                     .cube = user.AccIcon, .color1 = user.Color1, .color2 = user.Color2,
                     .color3 = user.Color3, .glow = user.AccGlow, .iconType = user.IconType,
