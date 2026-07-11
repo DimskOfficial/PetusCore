@@ -144,6 +144,42 @@ Namespace Api
                 db.DefaultLevels.Write(Sub(r) r.RemoveAll(Function(x) x.Slot = slot))
                 Return RestApi.Ok(New With {.ok = True})
             End Function)
+
+            ' ---- Public player profile (for /u/[name]) -------------------
+            app.MapGet("/api/users/{name}", Function(ctx As HttpContext, name As String)
+                Dim acc = db.FindAccountByName(name)
+                If acc Is Nothing Then Return RestApi.[Error](ctx, 404, "not_found")
+                Dim user = db.FindUserByExt(acc.AccountID.ToString())
+
+                ' Derive badges from role + in-game stats.
+                Dim badges = New List(Of String)()
+                If acc.IsAdmin > 0 Then badges.Add("admin")
+                If acc.ModLevel > 0 Then badges.Add("mod")
+                If user IsNot Nothing Then
+                    If user.Stars >= 1000 Then badges.Add("stars1000")
+                    If user.Demons >= 10 Then badges.Add("demonslayer")
+                    If user.CreatorPoints >= 1 Then badges.Add("creator")
+                    If user.Diamonds >= 500 Then badges.Add("diamonds500")
+                End If
+
+                ' Levels created by this account (listed only).
+                Dim myLevels = db.Levels.Read(Function(r) r.Where(Function(l) l.ExtID = acc.AccountID.ToString() AndAlso l.Unlisted = 0).OrderByDescending(Function(l) l.UploadDate).Take(50).ToList())
+
+                ' Profile comments (base64 in AccountComments).
+                Dim pComments = db.AccountComments.Read(Function(r) r.Where(Function(c) c.AccountID = acc.AccountID).OrderByDescending(Function(c) c.Timestamp).Take(50).ToList())
+
+                Return RestApi.Ok(New With {
+                    acc.AccountID, acc.UserName,
+                    .isAdmin = acc.IsAdmin > 0, .modLevel = acc.ModLevel,
+                    acc.RegisterDate,
+                    .youtube = acc.Youtube, .twitter = acc.Twitter, .twitch = acc.Twitch,
+                    .discord = acc.Discord, .instagram = acc.Instagram, .tiktok = acc.Tiktok,
+                    .stats = If(user Is Nothing, Nothing, New With {user.Stars, user.Demons, user.Diamonds, user.Coins, user.UserCoins, .creatorPoints = user.CreatorPoints, user.Moons, user.CompletedLvls}),
+                    .badges = badges,
+                    .levels = myLevels.Select(Function(l) New With {l.LevelID, l.LevelName, l.Downloads, l.Likes, l.Stars, l.Difficulty, .previewUrl = l.PreviewUrl}).ToList(),
+                    .comments = pComments.Select(Function(c) New With {c.CommentID, .content = DecodeB64(c.Content), c.Likes, c.Timestamp}).ToList()
+                })
+            End Function)
         End Sub
 
         ' Best percent this account reached on a level (0 if never played).
