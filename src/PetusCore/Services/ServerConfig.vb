@@ -9,7 +9,7 @@ Namespace Services
     ''' </summary>
     Public Class ServerConfig
 
-        Public Const Version As String = "2.3.0-game-1.0.5"
+        Public Const Version As String = "2.4.0-game-1.0.6"
 
         ''' <summary>PostgreSQL connection string (PETUS_DB_URL).</summary>
         Public Property DbUrl As String
@@ -45,10 +45,10 @@ Namespace Services
         Public Property GameExe As String = "GeometryDash.exe"
 
         ''' <summary>Current game build version the launcher should install.</summary>
-        Public Property GameVersion As String = "1.0.5"
+        Public Property GameVersion As String = "1.0.6"
 
         ''' <summary>Download URL of the current game .zip (versioned, CDN-cache-proof).</summary>
-        Public Property GameZipUrl As String = "https://cdn.petus.goonhost.rocks/game/petusgdps-1.0.5.zip"
+        Public Property GameZipUrl As String = "https://cdn.petus.goonhost.rocks/game/petusgdps-1.0.6.zip"
 
         ''' <summary>Username auto-promoted to admin on login (bootstrap the first admin).</summary>
         Public Property AdminUser As String = ""
