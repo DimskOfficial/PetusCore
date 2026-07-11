@@ -57,6 +57,8 @@ Namespace Endpoints
 
                     If existing Is Nothing Then
                         db.Levels.Write(Sub(r) r.Add(l))
+                        ' Auto-award creator points at level-count milestones.
+                        AwardCreatorMilestone(db, user)
                     Else
                         db.Levels.Write(Sub(r)
                                             Dim i = r.FindIndex(Function(x) x.LevelID = l.LevelID)
@@ -181,6 +183,39 @@ Namespace Endpoints
                 Dim secondsLeft = 86400 - (GdHelpers.Now() Mod 86400)
                 Return GdHelpers.Text($"{l.DailyID}|{secondsLeft}")
             End Function)
+        End Sub
+
+        ''' <summary>
+        ''' Award creator points when a user crosses a "levels created" milestone:
+        ''' 5 -> +15, 10 -> +30, 20 -> +60, 30 -> +150 (cumulative thresholds).
+        ''' CpMilestone tracks the highest milestone already paid so each is
+        ''' granted exactly once.
+        ''' </summary>
+        Private Sub AwardCreatorMilestone(db As Database, user As Data.Models.GdUser)
+            Dim created = db.Levels.Read(Function(r) r.Where(Function(x) x.UserID = user.UserID).Count())
+            ' (threshold, cumulative CP reward)
+            Dim tiers = {Tuple.Create(5, 15), Tuple.Create(10, 30), Tuple.Create(20, 60), Tuple.Create(30, 150)}
+            Dim newMilestone = user.CpMilestone
+            Dim added = 0
+            For Each t In tiers
+                If created >= t.Item1 AndAlso user.CpMilestone < t.Item1 Then
+                    added += t.Item2
+                    newMilestone = t.Item1
+                End If
+            Next
+            If added > 0 Then
+                Dim uid = user.UserID
+                Dim ms = newMilestone
+                Dim delta = added
+                db.Users.Write(Sub(r)
+                                   Dim u = r.Find(Function(x) x.UserID = uid)
+                                   If u IsNot Nothing Then
+                                       u.CreatorPoints += delta
+                                       u.CpMilestone = ms
+                                   End If
+                               End Sub)
+                db.Log(user.UserID, "creatorMilestone", ms.ToString(), delta.ToString())
+            End If
         End Sub
 
     End Module

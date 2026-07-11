@@ -266,11 +266,18 @@ Namespace Api
             Dim user = db.FindUserByExt(acc.AccountID.ToString())
             Return New With {
                 acc.AccountID, acc.UserName, acc.Email, acc.IsActive, acc.IsBanned,
-                .isAdmin = acc.IsAdmin > 0, .modLevel = acc.ModLevel, acc.RegisterDate,
+                .banReason = acc.BanReason, .banUntil = acc.BanUntil,
+                .isAdmin = acc.IsAdmin > 0, .modLevel = acc.ModLevel,
+                .isLeaderboardMod = acc.IsLeaderboardMod > 0, acc.RegisterDate,
                 .petusLinked = acc.PetusId <> "",
                 .youtube = acc.Youtube, .twitter = acc.Twitter, .twitch = acc.Twitch,
                 .discord = acc.Discord, .instagram = acc.Instagram, .tiktok = acc.Tiktok,
-                .stats = If(user Is Nothing, Nothing, New With {user.Stars, user.Demons, user.Diamonds, user.Coins, user.UserCoins, .creatorPoints = user.CreatorPoints})
+                .icon = If(user Is Nothing, Nothing, New With {
+                    .cube = user.AccIcon, .color1 = user.Color1, .color2 = user.Color2,
+                    .color3 = user.Color3, .glow = user.AccGlow, .iconType = user.IconType,
+                    .displayIcon = user.Icon
+                }),
+                .stats = If(user Is Nothing, Nothing, New With {user.Stars, user.Demons, user.Diamonds, .moons = user.Moons, user.Coins, user.UserCoins, .creatorPoints = user.CreatorPoints})
             }
         End Function
 

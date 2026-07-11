@@ -14,46 +14,18 @@ Namespace Endpoints
             Dim a = DirectCast(app, Microsoft.AspNetCore.Builder.WebApplication)
 
             ' --- Register -------------------------------------------------
+            ' DISABLED: accounts are provisioned only through Petus ID via the
+            ' launcher (POST /api/petusid/resolve). No in-game registration.
             a.MapPost("/accounts/registerGJAccount.php", Function(ctx As HttpContext)
-                Dim userName = GdHelpers.Clean(GdHelpers.Form(ctx, "userName"))
-                Dim password = GdHelpers.Form(ctx, "password")
-                Dim email = GdHelpers.Clean(GdHelpers.Form(ctx, "email"))
-
-                If userName.Length < 3 OrElse userName.Length > 20 Then Return GdHelpers.Text("-4")   ' name too short/long
-                If password.Length < 6 Then Return GdHelpers.Text("-8")                                ' password too short
-                If db.FindAccountByName(userName) IsNot Nothing Then Return GdHelpers.Text("-2")       ' taken
-
-                Dim acc As New Account With {
-                    .AccountID = db.NextId("accountID"),
-                    .UserName = userName,
-                    .Password = pw.HashPassword(password),
-                    .Gjp2 = pw.HashGjp2(password),
-                    .Email = email,
-                    .IsActive = cfg.PreactivateAccounts,
-                    .RegisterDate = GdHelpers.Now()
-                }
-                db.Accounts.Write(Sub(r) r.Add(acc))
-                db.ResolveUser(acc.AccountID.ToString(), userName)
-                Return GdHelpers.Text("1")
+                Return GdHelpers.Text("-1")
             End Function)
 
             ' --- Login ----------------------------------------------------
+            ' DISABLED: no in-game password login. The launcher hands the mod a
+            ' session token (Petus ID only). Returning -1 makes the vanilla
+            ' login box fail; the mod applies the launcher identity instead.
             a.MapPost("/accounts/loginGJAccount.php", Function(ctx As HttpContext)
-                Dim userName = GdHelpers.Clean(GdHelpers.Form(ctx, "userName"))
-                Dim acc = db.FindAccountByName(userName)
-                If acc Is Nothing Then Return GdHelpers.Text("-1")
-                If acc.IsBanned Then Return GdHelpers.Text("-12") ' banned
-                If Not acc.IsActive Then Return GdHelpers.Text("-1")
-
-                Dim ok = False
-                Dim gjp2 = GdHelpers.Form(ctx, "gjp2")
-                Dim password = GdHelpers.Form(ctx, "password")
-                If gjp2 <> "" Then ok = pw.VerifyGjp2(gjp2, acc) Else ok = pw.VerifyRawPassword(password, acc)
-                If Not ok Then Return GdHelpers.Text("-11") ' wrong credentials
-
-                ' Ensure a linked in-game user exists.
-                Dim user = db.ResolveUser(acc.AccountID.ToString(), acc.UserName)
-                Return GdHelpers.Text($"{acc.AccountID},{user.UserID}")
+                Return GdHelpers.Text("-1")
             End Function)
 
             ' --- Update user score / stats (updateGJUserScore22) ----------

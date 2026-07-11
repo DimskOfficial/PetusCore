@@ -26,8 +26,14 @@ Namespace Data.Models
         Public Property Instagram As String = ""
         Public Property Tiktok As String = ""
         ' Roles / moderation
-        Public Property ModLevel As Integer = 0     ' 0 none, 1 mod (elder=2)
+        Public Property ModLevel As Integer = 0     ' 0 none, 1 mod, 2 elder
+        ''' <summary>Leaderboard moderator (new in GD 2.2). Independent of ModLevel.</summary>
+        Public Property IsLeaderboardMod As Integer = 0
         Public Property IsBanned As Boolean = False
+        ''' <summary>Ban reason (English only), shown to the player in-game.</summary>
+        Public Property BanReason As String = ""
+        ''' <summary>Unix seconds when the ban expires. 0 = permanent.</summary>
+        Public Property BanUntil As Long = 0
         ' Account recovery
         Public Property RecoveryCode As String = ""
         Public Property RecoveryExpires As Long = 0
@@ -81,6 +87,10 @@ Namespace Data.Models
         Public Property Chest2Time As Long = 0
         Public Property Chest1Count As Integer = 0
         Public Property Chest2Count As Integer = 0
+        ''' <summary>Highest "levels created" milestone already rewarded with CP (5/10/20/30).</summary>
+        Public Property CpMilestone As Integer = 0
+        ''' <summary>1 once the welcome bonus has been granted (first login).</summary>
+        Public Property WelcomeBonus As Integer = 0
     End Class
 
     ''' <summary>An uploaded level.</summary>

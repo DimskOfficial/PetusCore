@@ -74,19 +74,42 @@ Namespace Api
             End Function)
 
             ' Ban / unban account (also flags the linked user).
+            ' Body: { banned: 1|0, reason: "English text", days: 0 } — days=0 => permanent.
             app.MapPost("/api/admin/accounts/{id:int}/ban", Function(ctx As HttpContext, id As Integer)
                 Dim admin = RequireAdmin(ctx, tokens, db)
                 If admin Is Nothing Then Return RestApi.[Error](ctx, 403, "forbidden")
                 Dim req = RestApi.ReadJson(ctx)
                 Dim banned = RestApi.IntOf(req, "banned") > 0
+                Dim reason = RestApi.Str(req, "reason")
+                Dim days = RestApi.IntOf(req, "days")
                 Dim acc = db.FindAccount(id)
                 If acc Is Nothing Then Return RestApi.[Error](ctx, 404, "not_found")
                 acc.IsBanned = banned
+                If banned Then
+                    acc.BanReason = reason
+                    acc.BanUntil = If(days > 0, DateTimeOffset.UtcNow.ToUnixTimeSeconds() + CLng(days) * 86400L, 0L)
+                Else
+                    acc.BanReason = ""
+                    acc.BanUntil = 0
+                End If
                 db.SaveAccount(acc)
                 Dim user = db.FindUserByExt(id.ToString())
                 If user IsNot Nothing Then user.IsBanned = If(banned, 1, 0) : db.SaveUser(user)
-                db.Log(admin.AccountID, If(banned, "ban", "unban"), id.ToString(), acc.UserName)
-                Return RestApi.Ok(New With {.ok = True, .banned = acc.IsBanned})
+                db.Log(admin.AccountID, If(banned, "ban", "unban"), id.ToString(), reason)
+                Return RestApi.Ok(New With {.ok = True, .banned = acc.IsBanned, .until = acc.BanUntil, .reason = acc.BanReason})
+            End Function)
+
+            ' Grant / revoke leaderboard moderator (new in GD 2.2).
+            app.MapPost("/api/admin/accounts/{id:int}/lbmod", Function(ctx As HttpContext, id As Integer)
+                Dim admin = RequireAdmin(ctx, tokens, db)
+                If admin Is Nothing Then Return RestApi.[Error](ctx, 403, "forbidden")
+                Dim req = RestApi.ReadJson(ctx)
+                Dim acc = db.FindAccount(id)
+                If acc Is Nothing Then Return RestApi.[Error](ctx, 404, "not_found")
+                acc.IsLeaderboardMod = If(RestApi.IntOf(req, "enabled") > 0, 1, 0)
+                db.SaveAccount(acc)
+                db.Log(admin.AccountID, "grantLbMod", id.ToString(), acc.IsLeaderboardMod.ToString())
+                Return RestApi.Ok(New With {.ok = True, .isLeaderboardMod = acc.IsLeaderboardMod > 0})
             End Function)
 
             ' ---- Level moderation ----------------------------------------

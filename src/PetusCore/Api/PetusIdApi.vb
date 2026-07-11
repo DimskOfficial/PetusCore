@@ -114,6 +114,48 @@ Namespace Api
                 db.SaveAccount(acc)
                 Return RestApi.Ok(New With {.ok = True})
             End Function)
+
+            ' Game session state for the mod's textbox logic (bearer token).
+            ' Returns what greeting to show and grants the one-time welcome bonus.
+            '   newAccount  -> show welcome + bonus text (granted once here)
+            '   banned      -> show ban text (reason + remaining time)
+            app.MapGet("/api/game/state", Function(ctx As HttpContext)
+                Dim acc = RestApi.RequireAuth(ctx, tokens)
+                If acc Is Nothing Then Return RestApi.[Error](ctx, 401, "unauthorized")
+
+                Dim now = DateTimeOffset.UtcNow.ToUnixTimeSeconds()
+                ' Auto-expire a temporary ban.
+                If acc.IsBanned AndAlso acc.BanUntil > 0 AndAlso acc.BanUntil <= now Then
+                    acc.IsBanned = False : acc.BanReason = "" : acc.BanUntil = 0
+                    db.SaveAccount(acc)
+                    Dim u0 = db.FindUserByExt(acc.AccountID.ToString())
+                    If u0 IsNot Nothing Then u0.IsBanned = 0 : db.SaveUser(u0)
+                End If
+
+                Dim user = db.ResolveUser(acc.AccountID.ToString(), acc.UserName)
+                Dim isNewAccount = user.WelcomeBonus = 0
+                If isNewAccount Then
+                    Dim uid = user.UserID
+                    db.Users.Write(Sub(r)
+                                       Dim u = r.Find(Function(x) x.UserID = uid)
+                                       If u IsNot Nothing Then
+                                           u.WelcomeBonus = 1
+                                           ' Welcome bonus: some starter diamonds.
+                                           u.Diamonds += 50
+                                       End If
+                                   End Sub)
+                    db.Log(acc.AccountID, "welcomeBonus", user.UserID.ToString(), "50 diamonds")
+                End If
+
+                Return RestApi.Ok(New With {
+                    .accountID = acc.AccountID,
+                    .userName = acc.UserName,
+                    .newAccount = isNewAccount,
+                    .banned = acc.IsBanned,
+                    .banReason = acc.BanReason,
+                    .banUntil = acc.BanUntil
+                })
+            End Function)
         End Sub
 
         ' Auto-promote the configured admin username, same as REST /auth/login.

@@ -154,7 +154,9 @@ Namespace Api
                 ' Derive badges from role + in-game stats.
                 Dim badges = New List(Of String)()
                 If acc.IsAdmin > 0 Then badges.Add("admin")
-                If acc.ModLevel > 0 Then badges.Add("mod")
+                If acc.ModLevel >= 2 Then badges.Add("elder")
+                If acc.ModLevel = 1 Then badges.Add("mod")
+                If acc.IsLeaderboardMod > 0 Then badges.Add("lbmod")
                 If user IsNot Nothing Then
                     If user.Stars >= 1000 Then badges.Add("stars1000")
                     If user.Demons >= 10 Then badges.Add("demonslayer")
@@ -171,9 +173,14 @@ Namespace Api
                 Return RestApi.Ok(New With {
                     acc.AccountID, acc.UserName,
                     .isAdmin = acc.IsAdmin > 0, .modLevel = acc.ModLevel,
+                    .isLeaderboardMod = acc.IsLeaderboardMod > 0,
                     acc.RegisterDate,
                     .youtube = acc.Youtube, .twitter = acc.Twitter, .twitch = acc.Twitch,
                     .discord = acc.Discord, .instagram = acc.Instagram, .tiktok = acc.Tiktok,
+                    .icon = If(user Is Nothing, Nothing, New With {
+                        .cube = user.AccIcon, .color1 = user.Color1, .color2 = user.Color2,
+                        .color3 = user.Color3, .glow = user.AccGlow
+                    }),
                     .stats = If(user Is Nothing, Nothing, New With {user.Stars, user.Demons, user.Diamonds, user.Coins, user.UserCoins, .creatorPoints = user.CreatorPoints, user.Moons, user.CompletedLvls}),
                     .badges = badges,
                     .levels = myLevels.Select(Function(l) New With {l.LevelID, l.LevelName, l.Downloads, l.Likes, l.Stars, l.Difficulty, .previewUrl = l.PreviewUrl}).ToList(),
