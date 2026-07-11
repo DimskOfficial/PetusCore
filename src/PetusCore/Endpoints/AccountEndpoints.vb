@@ -32,8 +32,10 @@ Namespace Endpoints
             Dim scoreHandler As Func(Of HttpContext, IResult) =
                 Function(ctx As HttpContext)
                     Dim accountID = GdAuth.Authenticate(ctx, db, pw)
-                    Dim extID = If(accountID > 0, accountID.ToString(), GdHelpers.Clean(GdHelpers.Form(ctx, "udid")))
-                    If extID = "" Then Return GdHelpers.Text("-1")
+                    ' Petus ID only: reject UDID/green (unauthenticated) submissions
+                    ' so unregistered players never appear in stats or leaderboards.
+                    If accountID <= 0 Then Return GdHelpers.Text("-1")
+                    Dim extID = accountID.ToString()
 
                     Dim userName = GdHelpers.Clean(GdHelpers.Form(ctx, "userName"))
                     Dim user = db.ResolveUser(extID, userName)

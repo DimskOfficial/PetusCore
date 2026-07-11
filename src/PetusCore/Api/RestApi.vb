@@ -56,7 +56,8 @@ Namespace Api
             End Function)
 
             app.MapGet("/api/leaderboard", Function()
-                Dim top = db.Users.All().Where(Function(u) u.Stars > 0).
+                ' Registered (Petus) accounts only — no green/UDID players.
+                Dim top = db.Users.All().Where(Function(u) u.Stars > 0 AndAlso u.IsRegistered = 1 AndAlso IsNumeric(u.ExtID)).
                              OrderByDescending(Function(u) u.Stars).Take(100).
                              Select(Function(u) New With {u.UserID, u.UserName, u.Stars, u.Demons, u.Diamonds, u.Coins, .creatorPoints = u.CreatorPoints})
                 Return Ok(top)
