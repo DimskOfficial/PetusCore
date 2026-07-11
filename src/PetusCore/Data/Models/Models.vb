@@ -134,6 +134,8 @@ Namespace Data.Models
         Public Property UpdateDate As Long = 0
         Public Property RatedAt As Long = 0
         Public Property RatedBy As Integer = 0
+        ''' <summary>Preview image URL (imgbb), captured by the mod at 50% on verify.</summary>
+        Public Property PreviewUrl As String = ""
     End Class
 
     ''' <summary>A comment left on a level.</summary>
@@ -271,6 +273,24 @@ Namespace Data.Models
     Public Class MusicFile
         Public Property ID As Integer
         Public Property Data As String = ""        ' base64-encoded mp3
+    End Class
+
+    ''' <summary>An overridable built-in "Play" level slot (Stereo Madness, ...).
+    ''' Points a fixed slot at a real uploaded level, with a display-name override.</summary>
+    Public Class DefaultLevel
+        Public Property Slot As Integer            ' 1..N, the in-game main-level id
+        Public Property LevelID As Integer = 0     ' catalog level to serve here
+        Public Property Name As String = ""        ' display name override (optional)
+        Public Property Enabled As Integer = 1
+    End Class
+
+    ''' <summary>Records that an account liked a level, to prevent double-likes
+    ''' from the website.</summary>
+    Public Class LevelLike
+        Public Property ID As Integer
+        Public Property LevelID As Integer
+        Public Property AccountID As Integer
+        Public Property Value As Integer = 1       ' 1 like, -1 dislike
     End Class
 
 End Namespace

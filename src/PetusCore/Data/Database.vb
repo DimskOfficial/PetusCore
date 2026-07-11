@@ -30,6 +30,8 @@ Namespace Data
         Public ReadOnly Property Gauntlets As PgTable(Of Gauntlet)
         Public ReadOnly Property Quests As PgTable(Of Quest)
         Public ReadOnly Property Music As PgTable(Of MusicFile)
+        Public ReadOnly Property DefaultLevels As PgTable(Of DefaultLevel)
+        Public ReadOnly Property LevelLikes As PgTable(Of LevelLike)
 
         Private ReadOnly _counters As PgTable(Of Counter)
         Private ReadOnly _idGate As New Object()
@@ -57,6 +59,8 @@ Namespace Data
             Gauntlets = New PgTable(Of Gauntlet)(_ds, "gauntlets")
             Quests = New PgTable(Of Quest)(_ds, "quests")
             Music = New PgTable(Of MusicFile)(_ds, "music_files")
+            DefaultLevels = New PgTable(Of DefaultLevel)(_ds, "default_levels")
+            LevelLikes = New PgTable(Of LevelLike)(_ds, "level_likes")
             _counters = New PgTable(Of Counter)(_ds, "counters")
         End Sub
 

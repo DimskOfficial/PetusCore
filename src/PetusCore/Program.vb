@@ -85,6 +85,7 @@ Module Program
         RestApi.Map(app)
         LauncherApi.Map(app)
         PetusIdApi.Map(app)
+        SiteApi.Map(app)
 
         ' Simple health check for Dokploy.
         app.MapGet("/health", Function() Results.Ok(New With {.status = "ok", .server = "PetusCore", .version = ServerConfig.Version}))
