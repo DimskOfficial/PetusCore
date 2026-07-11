@@ -60,6 +60,7 @@ Module Program
         Dim rawPrefix = Environment.GetEnvironmentVariable("PETUS_PATH_PREFIX")
         Dim prefixes = New List(Of String)()
         If Not String.IsNullOrWhiteSpace(rawPrefix) Then prefixes.Add("/" & rawPrefix.Trim("/"c))
+        prefixes.Add("/gd")       ' hex-patched client points at cgdps.petus.ru/gd/database/*
         prefixes.Add("/database") ' GD always appends /database/<endpoint>
         app.Use(Async Function(context As HttpContext, nextMiddleware As Func(Of Task))
                     Dim p = context.Request.Path.Value

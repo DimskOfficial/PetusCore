@@ -9,7 +9,7 @@ Namespace Services
     ''' </summary>
     Public Class ServerConfig
 
-        Public Const Version As String = "1.4.0-modapps-landing"
+        Public Const Version As String = "1.5.0-gd-prefix"
 
         ''' <summary>PostgreSQL connection string (PETUS_DB_URL).</summary>
         Public Property DbUrl As String
