@@ -1,174 +1,111 @@
 # PetusCore
 
-**PetusCore** is the server core for **PetusGDPS** — a Geometry Dash 2.2 private
-server ("GDPS") emulator written from scratch in **Visual Basic .NET**
-(ASP.NET Core, .NET 8).
+Игровое ядро приватного сервера **Geometry Dash 2.2** (PetusGDPS).
+Написано на **VB.NET / ASP.NET Core (.NET 8)**, хранилище — **PostgreSQL**.
 
-It speaks the Geometry Dash game protocol the client expects *and* exposes a
-clean JSON **REST API** for the [PetusGDPS website](https://github.com/DimskOfficial/PetusGDPS).
-Data is stored in **PostgreSQL** — every entity is a real relational table with
-typed columns (no JSON blobs). Point it at any Postgres with `PETUS_DB_URL`.
+Один процесс обслуживает две поверхности:
+- **Игровые эндпоинты** для клиента GD (`/accounts/*`, `/getGJLevels21.php`, …).
+- **REST API** (`/api/*`) для сайта и лаунчера (аккаунты, уровни, рейтинги,
+  профили, модерация, манифест игры).
 
-> Inspired by / compatible with the account & hashing conventions of
-> [GMDprivateServer](https://github.com/Cvolton/GMDprivateServer), but a
-> completely independent VB.NET implementation on PostgreSQL.
+Ядро самодостаточно: с чистой БД оно поднимает схему само и готово к работе.
 
----
+## Архитектура
 
-## ✨ Features
+```
+            ┌──────────────┐      REST /api/*        ┌───────────────┐
+  Игрок ───▶│  GD 2.2      │──── /accounts, /get… ──▶│               │
+            │  (клиент)    │                          │   PetusCore   │──▶ PostgreSQL
+  Сайт  ───▶│  gdps.site   │──── /api/* ─────────────▶│  (VB.NET /    │
+            └──────────────┘                          │  ASP.NET Core)│
+  Лаунчер ─▶ /api/game/manifest ─────────────────────▶└───────────────┘
+```
 
-**Game protocol (Boomlings-style `*.php` endpoints the GD client talks to)**
-- Accounts: register, login (GJP **and** GJP2), user score/stats sync
-- Levels: upload, update, download (with the correct integrity hashes),
-  search (recent / most downloaded / most liked / trending / featured /
-  awarded / epic / by user / by name or ID), daily & weekly
-- Comments: level comments and profile comments (post / list / delete / like)
-- Leaderboards: global stars, creator points, and per-level percent boards
-- Users: profile info, user search
-- Songs: custom/Newgrounds song info, top artists
-- Moderation from in-game: rate stars, rate demon, suggest stars
+- **`Program.vb`** — старт, DI, middleware (срез URL-префиксов), регистрация
+  всех групп эндпоинтов.
+- **`Data/PgTable(Of T)`** — тонкий реляционный маппер: каждое публичное
+  свойство модели = типизированная колонка. Схема создаётся и мигрируется
+  (`CREATE TABLE IF NOT EXISTS` + `ADD COLUMN IF NOT EXISTS`) на старте.
+- **`Data/Database.vb`** — таблицы (accounts, users, levels, comments, songs,
+  scores, map_packs, gauntlets, quests, mod_applications, …) + счётчики ID.
+- **`Api/*`** — REST: `RestApi`, `SiteApi`, `AdminApi`, `PetusIdApi`, `LauncherApi`.
+- **`Endpoints/*`** — Boomlings-совместимые игровые эндпоинты.
+- **`Services/*`** — конфиг, пароли (BCrypt + GJP2), токены, хеши.
 
-**REST API (for the website & tools)** — see [`docs/API.md`](docs/API.md)
-- Public: server info, live stats, leaderboard, level browsing, song list
-- Auth: bearer-token login / logout / me
-- Account self-service: change password, edit socials, account recovery
-- Music upload
-- **Admin panel API**: accounts (grant mod / grant admin / ban), levels
-  (rate / set daily / delete), song moderation, audit log
+## Аутентификация
 
-**Ops**
-- Relational PostgreSQL storage (typed columns), transactional writes
-- BCrypt password hashing — interoperable with PHP `password_hash` (`$2y$`)
-- Docker image + Compose, health check, 100% env-var configurable
-- Built and end-to-end tested on **.NET 8 SDK** (see the test flow below)
+- Аккаунты создаются **только** через провайдер идентичности (сервис-секрет,
+  `POST /api/petusid/resolve`) — на сервере нет открытой регистрации/пароля.
+- Игровые запросы авторизуются либо классическим GJP2, либо **токеном лаунчера**:
+  клиент шлёт `gjp2 = "petus:<token>"`, ядро валидирует токен (`GdAuth`). Так
+  статистика/рекорды/профиль сохраняются на реальный аккаунт.
+- Незалогиненные (green/UDID) игроки не могут писать данные — рейтинги и
+  профили только для зарегистрированных аккаунтов.
 
----
-
-## 🚀 Deploy on Dokploy (recommended)
-
-PetusCore ships as an **Application** you can deploy straight from this repo.
-
-1. In Dokploy, **Create → Application → GitHub** and pick
-   `DimskOfficial/PetusCore`.
-2. **Build type: Dockerfile.** Exact fields:
-   - **Dockerfile Path:** `Dockerfile`
-   - **Docker Context Path:** `.` (repo root — the Dockerfile COPYs from `src/PetusCore/`)
-   - **Docker Build Stage:** *(leave empty — the final stage is the runtime image)*
-3. Add a **PostgreSQL** database (Dokploy → Databases → PostgreSQL, or any
-   external Postgres/Neon). Put its connection string in `PETUS_DB_URL`.
-4. Set **Environment variables** (see the table below). At minimum set
-   `PETUS_DB_URL`, change `PETUS_API_SECRET`, set `PETUS_ADMIN_USER` to your
-   in-game username, and set `PETUS_PUBLIC_URL` to your domain (e.g.
-   `https://gdps.petus.ru`).
-5. Expose the app and attach your domain. The container listens on **8080**.
-6. Deploy. Check `https://your-domain/health` → `{"status":"ok",...}`. Tables are
-   created automatically on first boot.
-
-Point your modified Geometry Dash client's server URL at your PetusCore domain
-and you're live.
-
-### Environment variables
-
-| Variable                  | Default            | Purpose                                            |
-|---------------------------|--------------------|----------------------------------------------------|
-| `PORT`                    | `8080`             | Port to listen on (Dokploy sets this)              |
-| `PETUS_DB_URL`            | *(required)*       | PostgreSQL connection string, e.g. `Host=petus-pg;Port=5432;Username=petus;Password=...;Database=petusgdps` |
-| `PETUS_SERVER_NAME`       | `PetusGDPS`        | Display name on the API/site                       |
-| `PETUS_API_SECRET`        | `change-me...`     | Secret for signing API tokens — **change it**      |
-| `PETUS_ADMIN_USER`        | *(empty)*          | Username auto-promoted to admin on first login     |
-| `PETUS_PUBLIC_URL`        | *(empty)*          | Public base URL (e.g. `https://gdps.petus.ru`). Used for account/content URLs and uploaded-song links behind a proxy — **set this in prod** |
-| `PETUS_PREACTIVATE`       | `true`             | Activate new accounts immediately                  |
-| `PETUS_GAME_DOWNLOAD_URL` | *(empty)*          | Direct link to the modded GD client (site button)  |
-| `PETUS_GAME_ZIP`          | *(empty)*          | Path to a packaged client `.zip` served by the launcher API |
-| `PETUS_GAME_EXE`          | `GeometryDash.exe` | Executable the launcher runs after install         |
-
-> **Reverse proxy note.** Dokploy/Traefik terminates TLS and forwards to the
-> container over HTTP. Always set `PETUS_PUBLIC_URL` so the GD client saves
-> accounts and streams uploaded music from your real `https://` domain instead
-> of the internal container address.
-
----
-
-## 🐳 Run with Docker locally
+## Запуск (Docker Compose — всё в комплекте)
 
 ```bash
 docker compose up --build
-# server on http://localhost:8080  — health: /health
 ```
 
-Or plain Docker:
+`docker-compose.yml` поднимает PostgreSQL + ядро. Дефолтные секреты в compose —
+поменяй перед публичным запуском.
+
+## Запуск локально (без Docker)
+
+Нужен .NET 8 SDK и запущенный PostgreSQL.
 
 ```bash
-docker build -t petuscore .
-docker run -p 8080:8080 \
-  -e PETUS_DB_URL="Host=host.docker.internal;Port=5432;Username=postgres;Password=postgres;Database=petusgdps" \
-  -e PETUS_ADMIN_USER=Dimsk -e PETUS_API_SECRET=please-change \
-  petuscore
+export PETUS_DB_URL="Host=localhost;Port=5432;Username=petus;Password=secret;Database=petusgdps"
+export PETUS_API_SECRET="change-me"
+export PETUS_ADMIN_USER="YourName"
+dotnet run --project src/PetusCore/PetusCore.vbproj
 ```
 
----
+Ядро слушает `http://0.0.0.0:8080`. Проверка: `GET /health`.
 
-## 🛠 Run from source (.NET 8 SDK)
+## Переменные окружения
+
+| Переменная | Назначение |
+| --- | --- |
+| `PETUS_DB_URL` | **обязательно** — строка подключения PostgreSQL (Npgsql). |
+| `PETUS_API_SECRET` | сервис-секрет для server-to-server вызовов (`/api/petusid/*`). |
+| `PETUS_ADMIN_USER` | ник, который автоматически становится админом при входе. |
+| `PETUS_SERVER_NAME` | отображаемое имя сервера. |
+| `PETUS_PUBLIC_URL` | публичный URL за реверс-прокси (для getAccountURL и т.п.). |
+| `PETUS_PATH_PREFIX` | доп. префикс пути, который срезается перед роутингом. |
+| `PETUS_PREACTIVATE` | `true` — новые аккаунты активны сразу. |
+| `PETUS_GAME_VERSION` / `PETUS_GAME_ZIP_URL` | версия и URL сборки игры для лаунчера (`/api/game/manifest`). |
+| `PORT` | порт (по умолчанию 8080). |
+
+## Как указать игру на своё ядро
+
+Клиент GD ходит на игровые эндпоинты по своему хосту. Ядро умеет срезать
+префиксы пути (`/gd`, `/database`), поэтому клиент, направленный на
+`https://<ваш-хост>/gd`, попадает в `/gd/database/<endpoint>` → ядро срежет
+`/gd` и обработает запрос. Настраивается через `PETUS_PATH_PREFIX`.
+
+## REST API (основное)
+
+- `GET  /health`, `GET /api/info`, `GET /api/stats`, `GET /api/leaderboard`
+- `GET  /api/levels`, `GET /api/levels/{id}`, `GET /api/levels/{id}/comments`
+- `GET  /api/users/{name}` — профиль (статы, опыт, уровень, бейджи, комментарии)
+- `GET  /api/game/manifest` — версия + URL сборки для лаунчера
+- `POST /api/petusid/resolve|login` — провижининг/вход (сервис-секрет)
+- `POST /api/game/state` — приветствие/бан для мода (bearer)
+- `/api/admin/*` — модерация (рейты, баны, роли, map packs, гаунтлеты, заявки)
+
+## Опыт и уровни
+
+Опыт считается из статистики:
+`stars*5 + moons*5 + diamonds*2 + secretCoins*100 + userCoins*20 + demons*75 +
+creatorPoints*5000`. Уровень — по нарастающей кривой (ур. N стоит N*1000 XP).
+
+## Сборка
 
 ```bash
-cd src/PetusCore
-PETUS_DB_URL="Host=127.0.0.1;Port=5432;Username=postgres;Password=postgres;Database=petusgdps" \
-  dotnet run -c Release
-# tables are created automatically on first boot
+dotnet build src/PetusCore/PetusCore.vbproj -c Release
+dotnet publish src/PetusCore/PetusCore.vbproj -c Release -o out
 ```
 
----
-
-## ✅ Verified end-to-end
-
-The build is compiled and smoke-tested with the .NET 8 SDK. The tested flow:
-
-```
-register (GD)          -> 1
-duplicate register     -> -2
-login raw password     -> "<accountID>,<userID>"
-login wrong password   -> -11
-REST login             -> bearer token + account (auto-admin applied)
-upload level (GD)      -> new levelID
-search recent (GD)     -> level list + hash
-download level (GD)    -> full level string + integrity hashes
-admin rate level       -> ok
-ban account            -> banned; in-game login now returns -12
-change password        -> ok
-grant moderator        -> ok
-```
-
----
-
-## 📂 Project layout
-
-```
-PetusCore/
-├─ Dockerfile, docker-compose.yml, .env.example
-├─ docs/API.md               # full REST API reference
-└─ src/PetusCore/
-   ├─ Program.vb             # bootstrap: DI, CORS, endpoints
-   ├─ Data/                  # PgTable, Database, models
-   ├─ Services/              # PasswordService, HashService, TokenService, config
-   ├─ Endpoints/             # Geometry Dash game protocol
-   └─ Api/                   # REST API + admin API
-```
-
----
-
-## 🔒 Notes & scope
-
-- This is a fan project / server emulator for private use. Geometry Dash is a
-  trademark of RobTop Games. You are responsible for how you host and use it.
-- PostgreSQL storage: each entity is a typed relational table, created on boot.
-  The storage layer (`Data/PgTable.vb`) is a thin generic mapper — swap or tune
-  it (indexes, per-table SQL) without touching endpoint code.
-- Some in-game systems (map packs, gauntlets, quests, rewards, messaging) are
-  present as valid stub responses so the client never hangs; they can be
-  fleshed out incrementally.
-
-  P.S окак
-
-## 📜 License
-
-[MIT](LICENSE) © 2026 DimskOfficial
+Готовый Docker-образ собирается из `Dockerfile` (multi-stage).
