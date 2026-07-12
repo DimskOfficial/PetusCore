@@ -36,6 +36,7 @@ Module Program
         builder.Services.AddSingleton(Of PasswordService)()
         builder.Services.AddSingleton(Of HashService)()
         builder.Services.AddSingleton(Of TokenService)()
+        builder.Services.AddSingleton(Of VersusHub)()
         builder.Services.AddCors()
         builder.Services.AddHttpContextAccessor()
 
@@ -85,6 +86,7 @@ Module Program
         GdAuth.Init(app.Services.GetRequiredService(Of TokenService)())
         GdEndpoints.Map(app)
         RestApi.Map(app)
+        VersusApi.Map(app)
         LauncherApi.Map(app)
         PetusIdApi.Map(app)
         SiteApi.Map(app)
