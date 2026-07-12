@@ -9,7 +9,7 @@ Namespace Services
     ''' </summary>
     Public Class ServerConfig
 
-        Public Const Version As String = "2.7.1-versusgame"
+        Public Const Version As String = "2.8.0-launcher22"
 
         ''' <summary>PostgreSQL connection string (PETUS_DB_URL).</summary>
         Public Property DbUrl As String
@@ -45,10 +45,14 @@ Namespace Services
         Public Property GameExe As String = "GeometryDash.exe"
 
         ''' <summary>Current game build version the launcher should install.</summary>
-        Public Property GameVersion As String = "1.0.8"
+        Public Property GameVersion As String = "1.0.9"
 
         ''' <summary>Download URL of the current game .zip (versioned, CDN-cache-proof).</summary>
-        Public Property GameZipUrl As String = "https://cdn.petus.goonhost.rocks/game/petusgdps-1.0.8.zip"
+        Public Property GameZipUrl As String = "https://cdn.petus.goonhost.rocks/game/petusgdps-1.0.9.zip"
+
+        ''' <summary>Current PetusLauncher version and its download URL (self-update).</summary>
+        Public Property LauncherVersion As String = "2.2.0"
+        Public Property LauncherUrl As String = "https://cdn.petus.goonhost.rocks/launcher/PetusLauncher-2.2.0.exe"
 
         ''' <summary>Username auto-promoted to admin on login (bootstrap the first admin).</summary>
         Public Property AdminUser As String = ""
@@ -72,6 +76,8 @@ Namespace Services
             c.GameExe = Env("PETUS_GAME_EXE", config("GameExe"), c.GameExe)
             c.GameVersion = Env("PETUS_GAME_VERSION", config("GameVersion"), c.GameVersion)
             c.GameZipUrl = Env("PETUS_GAME_ZIP_URL", config("GameZipUrl"), c.GameZipUrl)
+            c.LauncherVersion = Env("PETUS_LAUNCHER_VERSION", config("LauncherVersion"), c.LauncherVersion)
+            c.LauncherUrl = Env("PETUS_LAUNCHER_URL", config("LauncherUrl"), c.LauncherUrl)
             c.AdminUser = Env("PETUS_ADMIN_USER", config("AdminUser"), c.AdminUser)
             c.PublicUrl = If(Env("PETUS_PUBLIC_URL", config("PublicUrl"), ""), "").TrimEnd("/"c)
 

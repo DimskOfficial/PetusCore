@@ -44,6 +44,13 @@ Namespace Api
                 .url = cfg.GameZipUrl
             }))
 
+            ' Launcher self-update manifest: the launcher checks this on startup
+            ' and updates itself automatically if a newer build is available.
+            app.MapGet("/api/launcher/version", Function() Ok(New With {
+                .version = cfg.LauncherVersion,
+                .url = cfg.LauncherUrl
+            }))
+
             app.MapGet("/api/stats", Function()
                 Return Ok(New With {
                     .accounts = db.Accounts.Count(),
