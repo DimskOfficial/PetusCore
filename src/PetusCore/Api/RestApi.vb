@@ -290,18 +290,20 @@ Namespace Api
             Return xp
         End Function
 
-        ''' <summary>Player level from total XP. Each level costs 1000 more XP than
-        ''' the previous (level 1: 1000, level 2: +2000, ...), a smooth curve.</summary>
+        ''' <summary>
+        ''' Player level from total XP, matching the in-game Better Progression
+        ''' curve exactly: level = floor((sqrt(2*exp + 25) - 5) / 10).
+        ''' EXP needed for a level: 50*level^2 + 50*level.
+        ''' </summary>
         Public Function LevelFor(xp As Long) As Integer
-            Dim lvl = 0
-            Dim need As Long = 1000
-            Dim acc As Long = 0
-            While acc + need <= xp AndAlso lvl < 999
-                acc += need
-                lvl += 1
-                need += 1000
-            End While
-            Return lvl
+            If xp <= 0 Then Return 0
+            Dim lvl = CInt(Math.Floor((Math.Sqrt(2.0 * xp + 25.0) - 5.0) / 10.0))
+            Return Math.Max(0, lvl)
+        End Function
+
+        ''' <summary>Total XP required to reach a given level (BP curve).</summary>
+        Public Function ExpForLevel(level As Integer) As Long
+            Return CLng(50) * level * level + CLng(50) * level
         End Function
 
         Public Function PublicAccount(acc As Account, db As Database) As Object
