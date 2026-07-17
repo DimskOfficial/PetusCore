@@ -27,7 +27,8 @@ Namespace Services
             Public Property Ready As Boolean = False
             Public Property Vote As Integer = 0         ' chosen levelID (0 = none)
             ' live match state
-            Public Property PosX As Double = 0
+            Public Property PosX As Double = 0           ' live x (client interpolates)
+            Public Property BestX As Double = 0          ' monotonic furthest x — never rewinds on respawn
             Public Property Percent As Integer = 0
             Public Property Attempts As Integer = 0
             Public Property Deaths As Integer = 0
@@ -251,7 +252,7 @@ Namespace Services
 
                 ' Reset per-match member state.
                 For Each m In lob.Members
-                    m.PosX = 0 : m.Percent = 0 : m.Attempts = 0 : m.Deaths = 0
+                    m.PosX = 0 : m.BestX = 0 : m.Percent = 0 : m.Attempts = 0 : m.Deaths = 0
                     m.Finished = False : m.FinishMs = 0 : m.LastSeen = NowMs()
                 Next
             End SyncLock
@@ -265,6 +266,10 @@ Namespace Services
                 If lob.State = StateCountdown AndAlso now >= lob.CountdownEndsMs Then
                     lob.State = StatePlaying
                 ElseIf lob.State = StatePlaying Then
+                    ' End when everyone still present has finished, or the clock runs out.
+                    ' Players who leave are removed from Members (see Leave), so they can't
+                    ' block the "all finished" check. DNF players stay in the list until
+                    ' the time limit, then get ranked as non-finishers.
                     Dim allDone = lob.Members.All(Function(m) m.Finished)
                     If allDone OrElse now >= lob.PlayEndsMs Then lob.State = StateResults
                 End If
@@ -277,7 +282,12 @@ Namespace Services
             SyncLock lob.Gate
                 Dim m = lob.Members.FirstOrDefault(Function(mm) mm.AccountID = accountID)
                 If m Is Nothing Then Return
+                ' Live x follows the client (which interpolates/smooths on its side).
+                ' On death the client will report a small x for the fresh attempt —
+                ' that's fine for the live ghost, but BestX/Percent stay monotonic so
+                ' a respawn never rewinds the player's ranking progress.
                 m.PosX = x
+                m.BestX = Math.Max(m.BestX, x)
                 m.Percent = Math.Max(m.Percent, percent)
                 If attempts > m.Attempts Then m.Attempts = attempts
                 If dead Then m.Deaths += 1

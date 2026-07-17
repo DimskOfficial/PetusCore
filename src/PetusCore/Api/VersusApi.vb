@@ -24,15 +24,14 @@ Namespace Api
             Dim tokens = a.Services.GetRequiredService(Of TokenService)()
             Dim hub = a.Services.GetRequiredService(Of VersusHub)()
 
-            ' --- eligibility: Versus tab is only for non-empty (registered, with
-            ' at least some progress) accounts. The mod calls this to decide
-            ' whether to unlock the tab. ---
+            ' --- eligibility: Versus is open to every non-banned account. The
+            ' progress gate is gone — balance fairness is handled at reward time
+            ' by the poorest-player stake cap, so even a fresh account can play
+            ' (it just risks/wins little). The mod calls this to unlock the tab. ---
             a.MapGet("/api/versus/eligible", Function(ctx As HttpContext)
                 Dim acc = RestApi.RequireAuth(ctx, tokens)
                 If acc Is Nothing Then Return RestApi.Ok(New With {.eligible = False})
-                Dim u = db.FindUserByExt(acc.AccountID.ToString())
-                Dim hasProgress = u IsNot Nothing AndAlso (u.Stars > 0 OrElse u.Diamonds > 0 OrElse u.UserCoins > 0 OrElse u.CompletedLvls > 0)
-                Return RestApi.Ok(New With {.eligible = acc.IsBanned = False AndAlso hasProgress, .name = acc.UserName})
+                Return RestApi.Ok(New With {.eligible = acc.IsBanned = False, .name = acc.UserName})
             End Function)
 
             ' --- top players to invite (by stars) ---
@@ -234,10 +233,13 @@ Namespace Api
                 If lob.State <> VersusHub.StateResults Then Return RestApi.Ok(New With {.ready = False, .state = lob.State})
                 Dim ranked = lob.Ranked
                 Dim ordered = hub.Rank(lob)
-                Dim rewards = ApplyRewards(db, lob, ordered)
+                Dim rr = ApplyRewards(db, lob, ordered)
+                Dim rewards = rr.rewards
+                Dim stake = rr.stake
                 Return RestApi.Ok(New With {
                     .ready = True,
                     .ranked = ranked,
+                    .stake = stake,
                     .level = lob.ChosenLevel,
                     .levelName = lob.ChosenLevelName,
                     .rankings = ordered.Select(Function(m, i) New With {
@@ -249,7 +251,9 @@ Namespace Api
                         .percent = m.Percent,
                         .deaths = m.Deaths,
                         .timeMs = If(m.Finished, m.FinishMs - lob.CountdownEndsMs, 0),
-                        .reward = rewards.GetValueOrDefault(m.AccountID, 0)
+                        .reward = rewards.GetValueOrDefault(m.AccountID).starDelta,
+                        .starDelta = rewards.GetValueOrDefault(m.AccountID).starDelta,
+                        .coinDelta = rewards.GetValueOrDefault(m.AccountID).coinDelta
                     }).ToList()
                 })
             End Function)
@@ -309,19 +313,40 @@ Namespace Api
         End Function
 
         ''' <summary>
-        ''' Reward the ranked lobby: winner gets 3× the level's stars+coins, 2nd
-        ''' 2×, 3rd 1×, everyone else who finished a small consolation, and players
-        ''' who didn't finish LOSE stars. Unranked lobbies award nothing. Applied
-        ''' exactly once per lobby (guarded by RewardsApplied).
+        ''' Resolve and apply the match payout. Applied exactly once per lobby
+        ''' (guarded by RewardsApplied).
+        '''
+        ''' Ranked with a real stake: the stake is sized by the POOREST player so a
+        ''' rich player can't drain a poor one — stakePerPlayer = Floor(minStars*0.10)
+        ''' (and a coin stake from the poorest coin balance). The 1st-place finisher
+        ''' takes each loser's stake; every non-winner loses their stake, capped at
+        ''' their current balance (never negative), and the winner only collects what
+        ''' was actually available. If nobody finished in time it's a no-contest (0s).
+        '''
+        ''' Unranked lobbies — and ranked lobbies where the stake resolves to 0
+        ''' (poorest player under 10 stars, "nothing to fight for") — pay completion
+        ''' style instead: finishers get the level's baseStars+baseCoins, non-finishers
+        ''' a small positive consolation. No stars are ever lost in this path.
         ''' </summary>
-        Private Function ApplyRewards(db As Database, lob As VersusHub.Lobby, ordered As List(Of VersusHub.Member)) As Dictionary(Of Integer, Integer)
-            Dim result As New Dictionary(Of Integer, Integer)()
+        Private Function ApplyRewards(db As Database, lob As VersusHub.Lobby, ordered As List(Of VersusHub.Member)) _
+                As (rewards As Dictionary(Of Integer, (starDelta As Integer, coinDelta As Integer)), stake As Integer)
+            Dim result As New Dictionary(Of Integer, (starDelta As Integer, coinDelta As Integer))()
             SyncLock lob.Gate
-                If lob.RewardsApplied OrElse Not lob.Ranked Then
-                    Return result
+                If lob.RewardsApplied Then
+                    Return (result, 0)
                 End If
                 lob.RewardsApplied = True
             End SyncLock
+
+            If ordered.Count = 0 Then Return (result, 0)
+
+            ' Snapshot each member's current balance — used both for the poorest-player
+            ' stake sizing and for capping loser deductions at what they actually have.
+            Dim balances As New Dictionary(Of Integer, (stars As Integer, coins As Integer))()
+            For Each m In ordered
+                Dim gu = db.FindUserByExt(m.AccountID.ToString())
+                balances(m.AccountID) = (If(gu IsNot Nothing, gu.Stars, 0), If(gu IsNot Nothing, gu.UserCoins, 0))
+            Next
 
             ' Base pot from the chosen level (min 10 stars so unrated levels still pay).
             Dim baseStars As Integer = 10
@@ -332,42 +357,70 @@ Namespace Api
                 baseCoins = lvl.Coins
             End If
 
-            ' Multipliers by place. Finishers within the limit only.
-            For i = 0 To ordered.Count - 1
-                Dim m = ordered(i)
-                Dim finishedInTime = m.Finished AndAlso m.FinishMs <= lob.PlayEndsMs
-                Dim starDelta As Integer
-                If finishedInTime Then
-                    Select Case i
-                        Case 0 : starDelta = baseStars * 3
-                        Case 1 : starDelta = baseStars * 2
-                        Case 2 : starDelta = baseStars * 1
-                        Case Else : starDelta = CInt(baseStars * 0.5)
-                    End Select
+            ' Stake sized by the poorest participant (ranked only).
+            Dim stakePerPlayer As Integer = 0
+            Dim coinStake As Integer = 0
+            If lob.Ranked Then
+                Dim minStars = ordered.Min(Function(m) balances(m.AccountID).stars)
+                Dim minCoins = ordered.Min(Function(m) balances(m.AccountID).coins)
+                stakePerPlayer = Math.Max(0, CInt(Math.Floor(minStars * 0.1)))
+                coinStake = Math.Max(0, CInt(Math.Floor(minCoins * 0.1)))
+            End If
+
+            Dim completionMode = (Not lob.Ranked) OrElse (stakePerPlayer <= 0)
+
+            If completionMode Then
+                ' Completion-style payout: finishers get the level reward, non-finishers
+                ' a small positive consolation. Never negative.
+                Dim consolation = Math.Max(1, CInt(Math.Floor(baseStars * 0.25)))
+                For Each m In ordered
+                    Dim finishedInTime = m.Finished AndAlso m.FinishMs <= lob.PlayEndsMs
+                    If finishedInTime Then
+                        result(m.AccountID) = (baseStars, baseCoins)
+                    Else
+                        result(m.AccountID) = (consolation, 0)
+                    End If
+                Next
+            Else
+                ' Ranked stake battle. Winner = 1st place, but only if they finished in
+                ' time; otherwise no-contest (nobody won → nobody loses).
+                Dim winner = ordered(0)
+                Dim winnerWon = winner.Finished AndAlso winner.FinishMs <= lob.PlayEndsMs
+                If winnerWon Then
+                    Dim potStars As Integer = 0
+                    Dim potCoins As Integer = 0
+                    For i = 1 To ordered.Count - 1
+                        Dim m = ordered(i)
+                        ' A loser can't lose more than they hold (no negative balance).
+                        Dim lossStars = Math.Min(stakePerPlayer, balances(m.AccountID).stars)
+                        Dim lossCoins = Math.Min(coinStake, balances(m.AccountID).coins)
+                        result(m.AccountID) = (-lossStars, -lossCoins)
+                        potStars += lossStars
+                        potCoins += lossCoins
+                    Next
+                    ' Winner collects only what was actually available.
+                    result(winner.AccountID) = (potStars, potCoins)
                 Else
-                    starDelta = -Math.Max(2, CInt(baseStars * 0.25))   ' DNF loses stars
+                    For Each m In ordered
+                        result(m.AccountID) = (0, 0)
+                    Next
                 End If
+            End If
 
-                Dim coinDelta As Integer = 0
-                If finishedInTime Then
-                    Select Case i
-                        Case 0 : coinDelta = baseCoins * 3
-                        Case 1 : coinDelta = baseCoins * 2
-                        Case 2 : coinDelta = baseCoins
-                    End Select
-                End If
-
-                result(m.AccountID) = starDelta
+            ' Persist. Math.Max(0, ...) keeps balances non-negative even if they moved
+            ' since the snapshot.
+            For Each m In ordered
+                Dim d = result(m.AccountID)
                 Dim aid = m.AccountID
                 db.Users.Write(Sub(rows)
                                    Dim u = rows.FirstOrDefault(Function(x) x.ExtID = aid.ToString())
                                    If u IsNot Nothing Then
-                                       u.Stars = Math.Max(0, u.Stars + starDelta)
-                                       u.UserCoins = Math.Max(0, u.UserCoins + coinDelta)
+                                       u.Stars = Math.Max(0, u.Stars + d.starDelta)
+                                       u.UserCoins = Math.Max(0, u.UserCoins + d.coinDelta)
                                    End If
                                End Sub)
             Next
-            Return result
+            Return (result, stakePerPlayer)
         End Function
 
     End Module
